@@ -18,6 +18,7 @@ dependencies = [
   "neuroconv",
   "nwbinspector",
   "roiextractors",
+  "ONE-api",
 ]
 
 [project.urls]
