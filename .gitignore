@@ -153,3 +153,6 @@ dmypy.json
 
 # NWB files
 **.nwb
+
+# Personal notes
+misc/
