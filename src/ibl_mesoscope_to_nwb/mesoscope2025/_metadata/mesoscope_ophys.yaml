@@ -11,7 +11,7 @@ Ophys:
       optical_channel:
         - name: green_channel
           emission_lambda: 518 # To be confirmed
-          description: GCaMP6f excitation.
+          description: GCaMP6f emission.
       device: 2_photon_mesoscope
   Fluorescence:
     plane_segmentation_FOVn:
