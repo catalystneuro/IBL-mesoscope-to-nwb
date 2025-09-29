@@ -1,4 +1,5 @@
 """Primary script to run to convert an entire session for of data using the NWBConverter."""
+
 from pathlib import Path
 from typing import Union
 import datetime
@@ -60,11 +61,8 @@ if __name__ == "__main__":
     output_dir_path = Path("~/conversion_nwb/")
     stub_test = False
 
-<<<<<<< HEAD:IBL-mesoscope-to-nwb/src/ibl_mesoscope_to_nwb/mesoscope2025/convert_session.py
-    session_to_nwb(data_dir_path=data_dir_path, output_dir_path=output_dir_path, stub_test=stub_test)
-=======
-    session_to_nwb(data_dir_path=data_dir_path,
-                    output_dir_path=output_dir_path,
-                    stub_test=stub_test,
-                    )
->>>>>>> main:IBL-mesoscope-to-nwb/src/ibl_mesoscope_to_nwb/mesoscope2025/mesoscope2025_convert_session.py
+    session_to_nwb(
+        data_dir_path=data_dir_path,
+        output_dir_path=output_dir_path,
+        stub_test=stub_test,
+    )
