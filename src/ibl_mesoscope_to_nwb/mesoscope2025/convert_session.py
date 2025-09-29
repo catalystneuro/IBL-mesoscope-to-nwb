@@ -1,11 +1,11 @@
 """Primary script to run to convert an entire session for of data using the NWBConverter."""
 
+import datetime
 from pathlib import Path
 from typing import Union
-import datetime
 from zoneinfo import ZoneInfo
 
-from neuroconv.utils import load_dict_from_file, dict_deep_update
+from neuroconv.utils import dict_deep_update, load_dict_from_file
 
 from ibl_mesoscope_to_nwb.mesoscope2025 import Mesoscope2025NWBConverter
 
