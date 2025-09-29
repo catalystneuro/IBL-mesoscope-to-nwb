@@ -1,5 +1,5 @@
 # IBL-mesoscope-to-nwb
-NWB conversion scripts for IBL-mesoscope lab data to the
+NWB conversion scripts for IBL-mesoscope data to the
 [Neurodata Without Borders](https://nwb-overview.readthedocs.io/) data format.
 
 
