@@ -1,0 +1,31 @@
+Ophys:
+  Device:
+    - name: 2_photon_mesoscope
+      description: The two photon mesoscope used to acquire green fluorescence on several FOVs.
+  ImagingPlane:
+    - name: FOVn
+      description: The imaging plane of FOV n.
+      excitation_lambda: 925.0 # To be confirmed
+      location: TBD
+      indicator: GCaMP6f
+      optical_channel:
+        - name: green_channel
+          emission_lambda: 518 # To be confirmed
+          description: GCaMP6f excitation.
+      device: 2_photon_mesoscope
+  Fluorescence:
+    plane_segmentation_FOVn:
+      raw:
+        name: roi_response_series
+        description: The raw GCaMP fluorescence traces.
+        unit: n.a.
+  DfOverF:
+    plane_segmentation_FOVn:
+      dff:
+        name: roi_response_series
+        description: The dF/F traces.
+  SegmentationImages:
+    plane_segmentation_FOVn:
+      mean:
+        name: mean_image
+        description: The mean image.
