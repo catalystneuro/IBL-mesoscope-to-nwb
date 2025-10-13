@@ -307,12 +307,12 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
         return pixel_masks
 
     def get_background_image_masks(self, roi_ids=None) -> np.ndarray:
-        self._image_masks = _image_mask_extractor(
+        self._background_image_masks = _image_mask_extractor(
             self.get_background_pixel_masks(),
             roi_ids if roi_ids is not None else list(range(self.get_num_background_components())),
             self.get_frame_shape(),
         )
-        return self._image_masks
+        return self._background_image_masks
 
     def _get_rois_responses(self) -> List[RoiResponse]:
         """Load the ROI responses from the Suite2p output files.
@@ -378,15 +378,13 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
                 self._summary_images["mean"] = mean_image
         return self._summary_images
 
-    def get_sampling_frequency(self) -> float | None:
-        """Get the sampling frequency of the recording.
+    def has_time_vector(self) -> bool:
+        """Detect if the SegmentationExtractor has a time vector set or not.
+
         Returns
         -------
-        sampling_frequency: float
-            Sampling frequency of the recording.
+        has_time_vector: bool
+            True if the SegmentationExtractor has a time vector set, otherwise False.
         """
-        if not self._sampling_frequency:
-            times = self._load_npy(file_name=self._timestamps_file_name, require=True)
-            assert times is not None, f"{self._timestamps_file_name} is required but could not be loaded"
-            self._sampling_frequency = calculate_regular_series_rate(times, tolerance_decimals=3)
-        return self._sampling_frequency
+        self._times = self.get_timestamps()
+        return self._times is not None

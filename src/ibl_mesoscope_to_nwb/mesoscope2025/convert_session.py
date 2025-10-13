@@ -55,7 +55,7 @@ if __name__ == "__main__":
     # Parameters for conversion
     data_dir_path = Path(r"D:\IBL-data-share\cortexlab\Subjects\SP061\2025-01-28\001\alf")
     output_dir_path = Path(r"D:\ibl_mesoscope_conversion_nwb")
-    stub_test = True
+    stub_test = False
 
     session_to_nwb(
         data_dir_path=data_dir_path,
