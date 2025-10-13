@@ -1,7 +1,7 @@
-from ._ibl_suite2p_segmentation_extractor import IBLSuite2pSegmentationExtractor
-from ._ibl_suite2p_segmentation_interface import IBLSuite2pSegmentationInterface
+from ._ibl_mesoscope_segmentation_extractor import IBLMesoscopeSegmentationExtractor
+from ._ibl_mesoscope_segmentation_interface import IBLMesoscopeSegmentationInterface
 
 __all__ = [
-    "IBLSuite2pSegmentationExtractor",
-    "IBLSuite2pSegmentationInterface",
+    "IBLMesoscopeSegmentationExtractor",
+    "IBLMesoscopeSegmentationInterface",
 ]

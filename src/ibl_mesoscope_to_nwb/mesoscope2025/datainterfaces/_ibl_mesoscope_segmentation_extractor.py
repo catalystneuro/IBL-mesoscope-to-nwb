@@ -135,13 +135,13 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
         if not hasattr(self, "iscell"):
             self.iscell = self._load_npy(file_name=self._ROIs_iscell_file_name, require=True)
             assert self.iscell is not None, f"{self._ROIs_iscell_file_name} is required but could not be loaded"
-        return list(np.where(self.iscell[:, 0] == 1)[0])
+        return list(np.where(self.iscell == 1)[0])
 
     def get_rejected_list(self) -> list[int]:
         if not hasattr(self, "iscell"):
             self.iscell = self._load_npy(file_name=self._ROIs_iscell_file_name, require=True)
             assert self.iscell is not None, f"{self._ROIs_iscell_file_name} is required but could not be loaded"
-        return list(np.where(self.iscell[:, 0] == 0)[0])
+        return list(np.where(self.iscell == 0)[0])
 
     def get_native_timestamps(
         self, start_sample: int | None = None, end_sample: int | None = None
@@ -159,11 +159,10 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
         frame_shape: tuple[int, int]
             Shape of the frames in the recording.
         """
-        if hasattr(self, "_frame_shape"):
-            return self._frame_shape
-        image_mean = self._load_npy(file_name=self._mean_image_file_name, require=True)
-        assert image_mean is not None, f"{self._mean_image_file_name} is required but could not be loaded"
-        self._frame_shape = (image_mean.shape[1], image_mean.shape[2])
+        if not hasattr(self, "_frame_shape"):
+            image_mean = self._load_npy(file_name=self._mean_image_file_name, require=True)
+            assert image_mean is not None, f"{self._mean_image_file_name} is required but could not be loaded"
+            self._frame_shape = (image_mean.shape[0], image_mean.shape[1])
         return self._frame_shape
 
     def get_num_samples(self) -> int:
@@ -174,11 +173,10 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
         num_samples: int
             Number of samples in the recording.
         """
-        if hasattr(self, "_num_frames"):
-            return self._num_frames
-        times = self._load_npy(file_name=self._timestamps_file_name, require=True)
-        assert times is not None, f"{self._timestamps_file_name} is required but could not be loaded"
-        self._num_frames = times.shape[0]
+        if not hasattr(self, "_num_frames"):
+            times = self._load_npy(file_name=self._timestamps_file_name, require=True)
+            assert times is not None, f"{self._timestamps_file_name} is required but could not be loaded"
+            self._num_frames = times.shape[0]
         return self._num_frames
 
     @property
@@ -187,6 +185,9 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
         roi_locations = self._load_npy(file_name=self._ROIs_location_file_name, require=True, transpose=True)
         assert roi_locations is not None, f"{self._ROIs_location_file_name} is required but could not be loaded"
         return roi_locations
+
+    def get_roi_locations(self, roi_ids=None) -> np.ndarray:
+        return self.roi_locations if roi_ids is None else self.roi_locations[roi_ids]
 
     @property
     def cell_classifier(self) -> np.ndarray:
@@ -210,10 +211,11 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
         """
         from scipy.sparse import load_npz
 
-        if hasattr(self, "_roi_pixel_masks"):
+        if hasattr(self, "_roi_pixel_masks") and self._roi_pixel_masks is not None:
             all_masks = self._roi_pixel_masks
         else:
-            masks = load_npz(self.folder_path / self.plane_name / self._ROI_masks_file_name)
+            file_path = self.folder_path / self.plane_name / self._ROI_masks_file_name
+            masks = load_npz(file_path)
             all_masks = masks.toarray().T  # shape (num_rois, num_pixels)
             self._roi_pixel_masks = all_masks
 
@@ -245,10 +247,11 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
         """
         from scipy.sparse import load_npz
 
-        if hasattr(self, "_background_pixel_masks"):
+        if hasattr(self, "_background_pixel_masks") and self._background_pixel_masks is not None:
             all_masks = self._background_pixel_masks
         else:
-            masks = load_npz(self.folder_path / self.plane_name / self._neuropil_masks_file_name)
+            file_path = self.folder_path / self.plane_name / self._neuropil_masks_file_name
+            masks = load_npz(file_path)
             all_masks = masks.toarray().T  # shape (num_background_rois, num_pixels)
             self._background_pixel_masks = all_masks
 
@@ -272,29 +275,29 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
         _roi_responses: List[RoiResponse]
             List of RoiResponse objects containing the ROI responses.
         """
-        if hasattr(self, "_roi_responses"):
-            return self._roi_responses
+        if not self._roi_responses:
+            self._roi_responses = []
 
-        self._roi_responses = []
+            raw_traces = self._load_npy(file_name=self._raw_traces_file_name, mmap_mode="r")
+            neuropil_traces = self._load_npy(file_name=self._neuropil_traces_file_name, mmap_mode="r")
+            deconvolved_traces = self._load_npy(file_name=self._deconvolved_traces_file_name, mmap_mode="r")
 
-        raw_traces = self._load_npy(file_name=self._raw_traces_file_name, mmap_mode="r", transpose=True)
-        neuropil_traces = self._load_npy(file_name=self._neuropil_traces_file_name, mmap_mode="r", transpose=True)
-        deconvolved_traces = self._load_npy(file_name=self._deconvolved_traces_file_name, mmap_mode="r", transpose=True)
+            cell_ids = None
+            if raw_traces is not None:
+                cell_ids = list(range(raw_traces.shape[1]))
+                self._roi_responses.append(
+                    RoiResponse("raw", raw_traces, cell_ids)
+                )  # TODO check if it is raw or DF over F
 
-        cell_ids = None
-        if raw_traces is not None:
-            cell_ids = list(range(raw_traces.shape[1]))
-            self._roi_responses.append(RoiResponse("raw", raw_traces, cell_ids))  # TODO check if it is raw or DF over F
+            if neuropil_traces is not None:
+                if cell_ids is None:
+                    cell_ids = list(range(neuropil_traces.shape[1]))
+                self._roi_responses.append(RoiResponse("neuropil", neuropil_traces, list(cell_ids)))
 
-        if neuropil_traces is not None:
-            if cell_ids is None:
-                cell_ids = list(range(neuropil_traces.shape[1]))
-            self._roi_responses.append(RoiResponse("neuropil", neuropil_traces, list(cell_ids)))
-
-        if deconvolved_traces is not None:
-            if cell_ids is None:
-                cell_ids = list(range(deconvolved_traces.shape[1]))
-            self._roi_responses.append(RoiResponse("deconvolved", deconvolved_traces, list(cell_ids)))
+            if deconvolved_traces is not None:
+                if cell_ids is None:
+                    cell_ids = list(range(deconvolved_traces.shape[1]))
+                self._roi_responses.append(RoiResponse("deconvolved", deconvolved_traces, list(cell_ids)))
 
         return self._roi_responses
 
@@ -307,7 +310,7 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
             dictionary with key, values representing different types of RoiResponseSeries:
                 Raw Fluorescence, DeltaFOverF, Denoised, Neuropil, Deconvolved, Background, etc.
         """
-        if not hasattr(self, "_roi_responses"):
+        if not self._roi_responses:
             self._get_rois_responses()
 
         traces = {response.response_type: response.data for response in self._roi_responses}
@@ -322,7 +325,7 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
             dictionary with key, values representing different types of Images used in segmentation:
                 Mean, Correlation image, Maximum projection, etc.
         """
-        if not hasattr(self, "_summary_images"):
+        if not self._summary_images:
             self._summary_images = {}
             mean_image = self._load_npy(file_name=self._mean_image_file_name, require=False)
             if mean_image is not None:
@@ -336,9 +339,8 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
         sampling_frequency: float
             Sampling frequency of the recording.
         """
-        if hasattr(self, "_sampling_frequency"):
-            return self._sampling_frequency
-        times = self._load_npy(file_name=self._timestamps_file_name, require=True)
-        assert times is not None, f"{self._timestamps_file_name} is required but could not be loaded"
-        self._sampling_frequency = calculate_regular_series_rate(times)
+        if not self._sampling_frequency:
+            times = self._load_npy(file_name=self._timestamps_file_name, require=True)
+            assert times is not None, f"{self._timestamps_file_name} is required but could not be loaded"
+            self._sampling_frequency = calculate_regular_series_rate(times, tolerance_decimals=3)
         return self._sampling_frequency

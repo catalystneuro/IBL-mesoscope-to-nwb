@@ -6,7 +6,7 @@ from pynwb import NWBFile
 from neuroconv.datainterfaces.ophys.basesegmentationextractorinterface import BaseSegmentationExtractorInterface
 from neuroconv.utils import DeepDict
 
-from ._ibl_suit2p_segmentation_extractor import IBLMesoscopeSegmentationExtractor
+from ._ibl_mesoscope_segmentation_extractor import IBLMesoscopeSegmentationExtractor
 
 
 def _update_metadata_links_for_plane_segmentation_name(metadata: dict, plane_segmentation_name: str) -> DeepDict:
