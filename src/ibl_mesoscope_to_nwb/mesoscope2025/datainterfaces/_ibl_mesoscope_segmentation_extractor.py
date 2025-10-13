@@ -196,33 +196,56 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
         assert cell_classifier is not None, f"{self._ROIs_classifier_file_name} is required but could not be loaded"
         return cell_classifier
 
-    def get_roi_pixel_masks(self, roi_ids=None) -> np.array:
-        """Get the pixel masks for the specified ROIs.
+    def get_roi_pixel_masks(self, roi_ids=None) -> list[np.ndarray]:
+        """Get the pixel masks for the specified ROIs in sparse format.
 
         Parameters
         ----------
-        roi_ids: list, optional
+        roi_ids : array-like, optional
             List of ROI IDs to get the pixel masks for. If None, all ROIs are returned.
 
         Returns
         -------
-        pixel_masks: np.array
-            Array of pixel masks for the specified ROIs.
+        pixel_masks : list[np.ndarray]
+            List of arrays, where each array is of shape (n_pixels, 3) with columns [y, x, weight].
+            Each row represents a pixel in the ROI mask with its y-coordinate, x-coordinate, and weight.
+
+        Notes
+        -----
+        The IBL format uses pydata/sparse library (not scipy.sparse) to save masks with sparse.save_npz().
+        The masks are stored as a 3D array with shape (num_rois, Ly, Lx).
         """
-        from scipy.sparse import load_npz
+        import sparse
 
-        if hasattr(self, "_roi_pixel_masks") and self._roi_pixel_masks is not None:
-            all_masks = self._roi_pixel_masks
-        else:
-            file_path = self.folder_path / self.plane_name / self._ROI_masks_file_name
-            masks = load_npz(file_path)
-            all_masks = masks.toarray().T  # shape (num_rois, num_pixels)
-            self._roi_pixel_masks = all_masks
+        # Load the sparse masks file (using pydata/sparse, not scipy.sparse)
+        file_path = self.folder_path / self.plane_name / self._ROI_masks_file_name
+        with open(file_path, "rb") as fp:
+            masks = sparse.load_npz(fp)  # shape: (num_rois, Ly, Lx)
 
+        # Determine which ROIs to process
         if roi_ids is None:
-            return all_masks
+            roi_indices = range(self.get_num_rois())
         else:
-            return all_masks[roi_ids]
+            roi_indices = roi_ids
+
+        pixel_masks = []
+        for roi_idx in roi_indices:
+            # Get the 2D mask for this ROI
+            roi_mask = masks[roi_idx]  # shape: (Ly, Lx)
+
+            # Convert to COO format to get coordinates and weights
+            roi_mask_coo = sparse.COO(roi_mask)
+
+            # Extract y, x coordinates and weights
+            y_coords = roi_mask_coo.coords[0]
+            x_coords = roi_mask_coo.coords[1]
+            weights = roi_mask_coo.data
+
+            # Stack into (n_pixels, 3) array: [y, x, weight]
+            pixel_mask = np.vstack([y_coords, x_coords, weights]).T
+            pixel_masks.append(pixel_mask)
+
+        return pixel_masks
 
     def get_roi_image_masks(self, roi_ids=None) -> np.ndarray:
         self._image_masks = _image_mask_extractor(
@@ -232,33 +255,56 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
         )
         return self._image_masks
 
-    def get_background_pixel_masks(self, background_ids=None) -> np.array:
-        """Get the pixel masks for the specified background ROIs.
+    def get_background_pixel_masks(self, background_ids=None) -> list[np.ndarray]:
+        """Get the pixel masks for the specified background (neuropil) ROIs in sparse format.
 
         Parameters
         ----------
-        background_ids: list, optional
+        background_ids : array-like, optional
             List of background ROI IDs to get the pixel masks for. If None, all background ROIs are returned.
 
         Returns
         -------
-        pixel_masks: np.array
-            Array of pixel masks for the specified background ROIs.
+        pixel_masks : list[np.ndarray]
+            List of arrays, where each array is of shape (n_pixels, 3) with columns [y, x, weight].
+            Each row represents a pixel in the background mask with its y-coordinate, x-coordinate, and weight.
+
+        Notes
+        -----
+        The IBL format uses pydata/sparse library (not scipy.sparse) to save masks with sparse.save_npz().
+        The neuropil masks are stored as a 3D array with shape (num_background_rois, Ly, Lx).
         """
-        from scipy.sparse import load_npz
+        import sparse
 
-        if hasattr(self, "_background_pixel_masks") and self._background_pixel_masks is not None:
-            all_masks = self._background_pixel_masks
-        else:
-            file_path = self.folder_path / self.plane_name / self._neuropil_masks_file_name
-            masks = load_npz(file_path)
-            all_masks = masks.toarray().T  # shape (num_background_rois, num_pixels)
-            self._background_pixel_masks = all_masks
+        # Load the sparse neuropil masks file (using pydata/sparse, not scipy.sparse)
+        file_path = self.folder_path / self.plane_name / self._neuropil_masks_file_name
+        with open(file_path, "rb") as fp:
+            masks = sparse.load_npz(fp)  # shape: (num_background_rois, Ly, Lx)
 
+        # Determine which background ROIs to process
         if background_ids is None:
-            return all_masks
+            background_indices = range(self.get_num_background_components())
         else:
-            return all_masks[background_ids]
+            background_indices = background_ids
+
+        pixel_masks = []
+        for bg_idx in background_indices:
+            # Get the 2D mask for this background ROI
+            bg_mask = masks[bg_idx]  # shape: (Ly, Lx)
+
+            # Convert to COO format to get coordinates and weights
+            bg_mask_coo = sparse.COO(bg_mask)
+
+            # Extract y, x coordinates and weights
+            y_coords = bg_mask_coo.coords[0]
+            x_coords = bg_mask_coo.coords[1]
+            weights = bg_mask_coo.data
+
+            # Stack into (n_pixels, 3) array: [y, x, weight]
+            pixel_mask = np.vstack([y_coords, x_coords, weights]).T
+            pixel_masks.append(pixel_mask)
+
+        return pixel_masks
 
     def get_background_image_masks(self, roi_ids=None) -> np.ndarray:
         self._image_masks = _image_mask_extractor(
