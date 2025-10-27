@@ -1,7 +1,11 @@
 """Primary NWBConverter class for this dataset."""
 
 from neuroconv import NWBConverter
-from .datainterfaces import IBLMesoscopeSegmentationInterface
+
+from .datainterfaces import (
+    IBLMesoscopeSegmentationInterface,
+    MotionCorrectedMesoscopeImagingInterface,
+)
 
 
 class Mesoscope2025NWBConverter(NWBConverter):
@@ -10,10 +14,15 @@ class Mesoscope2025NWBConverter(NWBConverter):
     def __init__(self, source_data: dict, verbose: bool = True):
         data_interface_name_mapping = {
             "Segmentation": IBLMesoscopeSegmentationInterface,
+            "MotionCorrectedImaging": MotionCorrectedMesoscopeImagingInterface,
         }
 
         for interface_name in source_data.keys():
             if "Segmentation" in interface_name:
+                for key, interface_class in data_interface_name_mapping.items():
+                    if key in interface_name:
+                        self.data_interface_classes[interface_name] = interface_class
+            if "MotionCorrected" in interface_name:
                 for key, interface_class in data_interface_name_mapping.items():
                     if key in interface_name:
                         self.data_interface_classes[interface_name] = interface_class

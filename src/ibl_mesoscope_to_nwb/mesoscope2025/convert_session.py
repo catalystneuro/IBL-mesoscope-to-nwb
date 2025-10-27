@@ -10,6 +10,7 @@ from neuroconv.utils import dict_deep_update, load_dict_from_file
 from ibl_mesoscope_to_nwb.mesoscope2025 import Mesoscope2025NWBConverter
 from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (  # noqa: F401
     IBLMesoscopeSegmentationExtractor,
+    MotionCorrectedMesoscopeImagingExtractor,
 )
 
 
@@ -32,13 +33,23 @@ def session_to_nwb(
     source_data = dict()
     conversion_options = dict()
 
-    # Add Segmentation
-    available_planes = IBLMesoscopeSegmentationExtractor.get_available_planes(data_dir_path)
-    for plane_name in available_planes:
-        source_data.update({f"{plane_name}Segmentation": dict(folder_path=data_dir_path, plane_name=plane_name)})
+    # Add Motion Corrected Imaging
+    mc_imaging_folder = data_dir_path / "suite2p"
+    available_planes = MotionCorrectedMesoscopeImagingExtractor.get_available_planes(mc_imaging_folder)
+    for plane_number, plane_name in enumerate(available_planes[:2]):  # Limit to first 2 planes for testing
+        file_path = mc_imaging_folder / plane_name / "imaging.frames_motionRegistered.bin"
+        source_data.update({f"{plane_name}MotionCorrectedImaging": dict(file_path=file_path)})
         conversion_options.update(
-            {f"{plane_name}Segmentation": dict(stub_test=stub_test, iterator_option=dict(display_progress=True))}
+            {f"{plane_name}MotionCorrectedImaging": dict(stub_test=stub_test, photon_series_index=plane_number)}
         )
+
+    # Add Segmentation
+    segmentation_folder = data_dir_path / "alf"
+    available_planes = IBLMesoscopeSegmentationExtractor.get_available_planes(segmentation_folder)
+    for plane_name in available_planes[:2]:  # Limit to first 2 planes for testing
+        source_data.update({f"{plane_name}Segmentation": dict(folder_path=segmentation_folder, plane_name=plane_name)})
+        conversion_options.update({f"{plane_name}Segmentation": dict(stub_test=stub_test)})
+
     converter = Mesoscope2025NWBConverter(source_data=source_data)
 
     # Add datetime to conversion
@@ -55,14 +66,17 @@ def session_to_nwb(
 
     # Run conversion
     converter.run_conversion(
-        metadata=metadata, nwbfile_path=nwbfile_path, conversion_options=conversion_options, overwrite=overwrite
+        metadata=metadata,
+        nwbfile_path=nwbfile_path,
+        conversion_options=conversion_options,
+        overwrite=overwrite,
     )
 
 
 if __name__ == "__main__":
 
     # Parameters for conversion
-    data_dir_path = Path(r"F:\IBL-data-share\cortexlab\Subjects\SP061\2025-01-28\001\alf")
+    data_dir_path = Path(r"F:\IBL-data-share\cortexlab\Subjects\SP061\2025-01-28\001")
     output_dir_path = Path(r"F:\ibl_mesoscope_conversion_nwb")
     stub_test = False
 
