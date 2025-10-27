@@ -15,7 +15,7 @@ from warnings import warn
 import numpy as np
 
 from roiextractors import SegmentationExtractor
-from roiextractors.segmentationextractor import RoiResponse
+from roiextractors.segmentationextractor import _RoiResponse
 from roiextractors.extraction_tools import _image_mask_extractor
 from neuroconv.utils.checks import calculate_regular_series_rate
 
@@ -314,12 +314,12 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
         )
         return self._background_image_masks
 
-    def _get_rois_responses(self) -> List[RoiResponse]:
+    def _get_rois_responses(self) -> List[_RoiResponse]:
         """Load the ROI responses from the Suite2p output files.
         Returns
         -------
-        _roi_responses: List[RoiResponse]
-            List of RoiResponse objects containing the ROI responses.
+        _roi_responses: List[_RoiResponse]
+            List of _RoiResponse objects containing the ROI responses.
         """
         if not self._roi_responses:
             self._roi_responses = []
@@ -332,18 +332,18 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
             if raw_traces is not None:
                 cell_ids = list(range(raw_traces.shape[1]))
                 self._roi_responses.append(
-                    RoiResponse("raw", raw_traces, cell_ids)
+                    _RoiResponse("raw", raw_traces, cell_ids)
                 )  # TODO check if it is raw or DF over F
 
             if neuropil_traces is not None:
                 if cell_ids is None:
                     cell_ids = list(range(neuropil_traces.shape[1]))
-                self._roi_responses.append(RoiResponse("neuropil", neuropil_traces, list(cell_ids)))
+                self._roi_responses.append(_RoiResponse("neuropil", neuropil_traces, list(cell_ids)))
 
             if deconvolved_traces is not None:
                 if cell_ids is None:
                     cell_ids = list(range(deconvolved_traces.shape[1]))
-                self._roi_responses.append(RoiResponse("deconvolved", deconvolved_traces, list(cell_ids)))
+                self._roi_responses.append(_RoiResponse("deconvolved", deconvolved_traces, list(cell_ids)))
 
         return self._roi_responses
 

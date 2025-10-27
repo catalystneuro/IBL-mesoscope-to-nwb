@@ -8,6 +8,9 @@ from zoneinfo import ZoneInfo
 from neuroconv.utils import dict_deep_update, load_dict_from_file
 
 from ibl_mesoscope_to_nwb.mesoscope2025 import Mesoscope2025NWBConverter
+from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (  # noqa: F401
+    IBLMesoscopeSegmentationExtractor,
+)
 
 
 def session_to_nwb(
@@ -16,6 +19,7 @@ def session_to_nwb(
     subject_id: str,
     session_id: str,
     stub_test: bool = False,
+    overwrite: bool = False,
 ):
 
     data_dir_path = Path(data_dir_path)
@@ -29,9 +33,12 @@ def session_to_nwb(
     conversion_options = dict()
 
     # Add Segmentation
-    source_data.update(dict(Segmentation=dict(folder_path=data_dir_path, plane_name="FOV_00")))
-    conversion_options.update(dict(Segmentation=dict(stub_test=stub_test)))
-
+    available_planes = IBLMesoscopeSegmentationExtractor.get_available_planes(data_dir_path)
+    for plane_name in available_planes:
+        source_data.update({f"{plane_name}Segmentation": dict(folder_path=data_dir_path, plane_name=plane_name)})
+        conversion_options.update(
+            {f"{plane_name}Segmentation": dict(stub_test=stub_test, iterator_option=dict(display_progress=True))}
+        )
     converter = Mesoscope2025NWBConverter(source_data=source_data)
 
     # Add datetime to conversion
@@ -47,14 +54,16 @@ def session_to_nwb(
     metadata["Subject"]["subject_id"] = subject_id
 
     # Run conversion
-    converter.run_conversion(metadata=metadata, nwbfile_path=nwbfile_path, conversion_options=conversion_options)
+    converter.run_conversion(
+        metadata=metadata, nwbfile_path=nwbfile_path, conversion_options=conversion_options, overwrite=overwrite
+    )
 
 
 if __name__ == "__main__":
 
     # Parameters for conversion
-    data_dir_path = Path(r"D:\IBL-data-share\cortexlab\Subjects\SP061\2025-01-28\001\alf")
-    output_dir_path = Path(r"D:\ibl_mesoscope_conversion_nwb")
+    data_dir_path = Path(r"F:\IBL-data-share\cortexlab\Subjects\SP061\2025-01-28\001\alf")
+    output_dir_path = Path(r"F:\ibl_mesoscope_conversion_nwb")
     stub_test = False
 
     session_to_nwb(
@@ -63,4 +72,5 @@ if __name__ == "__main__":
         subject_id="SP061",
         session_id="2025-01-28-001",
         stub_test=stub_test,
+        overwrite=True,
     )
