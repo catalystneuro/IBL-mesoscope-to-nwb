@@ -117,7 +117,7 @@ class IBLMesoscopeSegmentationInterface(BaseSegmentationExtractorInterface):
             plane_segmentation_name = (
                 "PlaneSegmentation"
                 if len(available_planes) == 1
-                else f"PlaneSegmentation{self.segmentation_extractor.plane_name.capitalize()}"
+                else f"PlaneSegmentation{self.segmentation_extractor.plane_name.upper()}"
             )
 
         self.plane_segmentation_name = plane_segmentation_name
