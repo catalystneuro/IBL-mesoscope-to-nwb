@@ -19,6 +19,7 @@ dependencies = [
   "nwbinspector",
   "roiextractors",
   "ONE-api",
+  "sparse",
 ]
 
 [project.urls]
