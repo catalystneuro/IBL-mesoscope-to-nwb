@@ -1,0 +1,54 @@
+Ophys:
+  Device:
+    - name: two_photon_mesoscope
+      description: The two photon mesoscope used to acquire green fluorescence on several FOVs.
+  ImagingPlane:
+    - name: imaging_plane_FOV_n
+      description: "Field of view <fov_idx> (UUID: <fov_uuid>). Image Depth: <z_position>um. Center location: ML=<center_mlapdv[0]:.1f>um, AP=<center_mlapdv[1]:.1f>um, DV=<center_mlapdv[2]:.1f>um. Allen CCF 2017 brain region ID: <brain_region_id>. Image dimensions: <dimensions[0]>x<dimensions[1]> pixels."
+      excitation_lambda: 920.0 # To be confirmed
+      location: <brain region ID>
+      reference_frame: "Stereotactic coordinates relative to bregma. ML (medial-lateral): positive is lateral (away from midline). AP (anterior-posterior): positive is anterior, negative is posterior. DV (dorsal-ventral): negative is ventral (deeper). Coordinates from Allen Common Coordinate Framework (CCF) 2017."
+      origin_coords: <origin_coords>
+      origin_coords_unit: meters
+      grid_spacing: <grid_spacing>
+      grid_spacing_unit: meters
+      indicator: GCaMP6f
+      optical_channel:
+        - name: green_channel
+          emission_lambda: 510.0 # To be confirmed
+          description: GCaMP6f emission.
+      device: two_photon_mesoscope
+  ImageSegmentation:
+    plane_segmentations:
+      - name: plane_segmentation_FOVn
+        description: The segmentation of ROIs for FOV n.
+        imaging_plane: imaging_plane_FOV_n
+  TwoPhotonSeries:
+    - name: two_photon_series_FOV_n
+      description: The two-photon imaging data acquired from FOV n using the mesoscope.
+      imaging_plane: imaging_plane_FOV_n
+      device: two_photon_mesoscope
+  Fluorescence:
+    plane_segmentation_FOVn:
+      raw:
+        name: raw_roi_response_series_FOV_n
+        description: The raw GCaMP fluorescence traces of FOV n.
+        unit: n.a.
+      deconvolved:
+        name: deconvolved_roi_response_series_FOV_n
+        description: The deconvolved activity traces of FOV n.
+        unit: n.a.
+      neuropil:
+        name: neuropil_response_series_FOV_n
+        description: The neuropil traces of FOV n.
+        unit: n.a.
+  DfOverF:
+    plane_segmentation_FOVn:
+      dff:
+        name: dff_roi_response_series_FOV_n
+        description: The dF/F traces of FOV n.
+  SegmentationImages:
+    plane_segmentation_FOVn:
+      mean:
+        name: mean_image_FOV_n
+        description: The mean image of FOV n.
