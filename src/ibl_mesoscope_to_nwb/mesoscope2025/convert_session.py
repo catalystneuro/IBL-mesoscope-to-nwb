@@ -18,7 +18,7 @@ def session_to_nwb(
     data_dir_path: Union[str, Path],
     output_dir_path: Union[str, Path],
     subject_id: str,
-    session_id: str,
+    eid: str,
     stub_test: bool = False,
     overwrite: bool = False,
 ):
@@ -28,7 +28,7 @@ def session_to_nwb(
     if stub_test:
         output_dir_path = output_dir_path / "nwb_stub"
     output_dir_path.mkdir(parents=True, exist_ok=True)
-    nwbfile_path = output_dir_path / f"{session_id}.nwb"
+    nwbfile_path = output_dir_path / f"sub-{subject_id}_ses-{eid}.nwb"
 
     source_data = dict()
     conversion_options = dict()
@@ -36,7 +36,8 @@ def session_to_nwb(
     # Add Motion Corrected Imaging
     mc_imaging_folder = data_dir_path / "suite2p"
     available_planes = MotionCorrectedMesoscopeImagingExtractor.get_available_planes(mc_imaging_folder)
-    for plane_number, plane_name in enumerate(available_planes[:2]):  # Limit to first 2 planes for testing
+    available_planes = available_planes[:2] if stub_test else available_planes  # Limit to first 2 planes for testing
+    for plane_number, plane_name in enumerate(available_planes):
         file_path = mc_imaging_folder / plane_name / "imaging.frames_motionRegistered.bin"
         source_data.update({f"{plane_name}MotionCorrectedImaging": dict(file_path=file_path)})
         conversion_options.update(
@@ -46,7 +47,8 @@ def session_to_nwb(
     # Add Segmentation
     segmentation_folder = data_dir_path / "alf"
     available_planes = IBLMesoscopeSegmentationExtractor.get_available_planes(segmentation_folder)
-    for plane_name in available_planes[:2]:  # Limit to first 2 planes for testing
+    available_planes = available_planes[:2] if stub_test else available_planes  # Limit to first 2 planes for testing
+    for plane_name in available_planes:
         source_data.update({f"{plane_name}Segmentation": dict(folder_path=segmentation_folder, plane_name=plane_name)})
         conversion_options.update({f"{plane_name}Segmentation": dict(stub_test=stub_test)})
 
@@ -58,7 +60,7 @@ def session_to_nwb(
     metadata["NWBFile"]["session_start_time"] = date
 
     # Update default metadata with the editable in the corresponding yaml file
-    editable_metadata_path = Path(__file__).parent / "metadata.yaml"
+    editable_metadata_path = Path(__file__).parent / "metadata/general_metadata.yaml"
     editable_metadata = load_dict_from_file(editable_metadata_path)
     metadata = dict_deep_update(metadata, editable_metadata)
 
@@ -76,15 +78,16 @@ def session_to_nwb(
 if __name__ == "__main__":
 
     # Parameters for conversion
-    data_dir_path = Path(r"F:\IBL-data-share\cortexlab\Subjects\SP061\2025-01-28\001")
-    output_dir_path = Path(r"F:\ibl_mesoscope_conversion_nwb")
+    data_dir_path = Path(r"E:\IBL-data-share\cortexlab\Subjects\SP061\2025-01-28\001")
+    output_dir_path = Path(r"E:\ibl_mesoscope_conversion_nwb")
+    eid = "5ce2e17e-8471-42d4-8a16-21949710b328"
     stub_test = False
 
     session_to_nwb(
         data_dir_path=data_dir_path,
         output_dir_path=output_dir_path,
         subject_id="SP061",
-        session_id="2025-01-28-001",
+        eid=eid,
         stub_test=stub_test,
         overwrite=True,
     )
