@@ -12,6 +12,7 @@ from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (  # noqa: F401
     IBLMesoscopeSegmentationExtractor,
     MotionCorrectedMesoscopeImagingExtractor,
 )
+from ibl_mesoscope_to_nwb.mesoscope2025.metadata.update_mesoscope_ophys_metadata import update_mesoscope_ophys_metadata
 
 
 def session_to_nwb(
@@ -41,14 +42,14 @@ def session_to_nwb(
         file_path = mc_imaging_folder / plane_name / "imaging.frames_motionRegistered.bin"
         source_data.update({f"{plane_name}MotionCorrectedImaging": dict(file_path=file_path)})
         conversion_options.update(
-            {f"{plane_name}MotionCorrectedImaging": dict(stub_test=stub_test, photon_series_index=plane_number)}
+            {f"{plane_name}MotionCorrectedImaging": dict(stub_test=False, photon_series_index=plane_number)}
         )
 
     # Add Segmentation
     segmentation_folder = data_dir_path / "alf"
-    available_planes = IBLMesoscopeSegmentationExtractor.get_available_planes(segmentation_folder)
-    available_planes = available_planes[:2] if stub_test else available_planes  # Limit to first 2 planes for testing
-    for plane_name in available_planes:
+    FOV_names = IBLMesoscopeSegmentationExtractor.get_available_planes(segmentation_folder)
+    FOV_names = FOV_names[:2] if stub_test else FOV_names  # Limit to first 2 planes for testing
+    for plane_name in FOV_names:
         source_data.update({f"{plane_name}Segmentation": dict(folder_path=segmentation_folder, plane_name=plane_name)})
         conversion_options.update({f"{plane_name}Segmentation": dict(stub_test=stub_test)})
 
@@ -63,6 +64,18 @@ def session_to_nwb(
     editable_metadata_path = Path(__file__).parent / "metadata" / "general_metadata.yaml"
     editable_metadata = load_dict_from_file(editable_metadata_path)
     metadata = dict_deep_update(metadata, editable_metadata)
+
+    # Update ophys metadata
+    ophys_metadata_path = Path(__file__).parent / "metadata" / "mesoscope_ophys_metadata.yaml"
+    raw_imaging_metadata_path = (
+        data_dir_path / "raw_imaging_data_00" / "_ibl_rawImagingData.meta.json"
+    )  # TODO Confirm that metadata does not change from raw_imaging_data_00 and raw_imaging_data_01
+    updated_ophys_metadata = update_mesoscope_ophys_metadata(
+        ophys_metadata_path=ophys_metadata_path,
+        raw_imaging_metadata_path=raw_imaging_metadata_path,
+        FOV_names=FOV_names,
+    )
+    metadata = dict_deep_update(metadata, updated_ophys_metadata)
 
     metadata["Subject"]["subject_id"] = subject_id
 

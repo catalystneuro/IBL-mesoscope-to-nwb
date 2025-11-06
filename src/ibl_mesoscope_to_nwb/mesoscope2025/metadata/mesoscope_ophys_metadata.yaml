@@ -18,7 +18,7 @@ Ophys:
         - name: green_channel
           emission_lambda: 510.0 # To be confirmed
           description: GCaMP6f emission.
-      device: two_photon_mesoscope
+
   ImageSegmentation:
     plane_segmentations:
       - name: plane_segmentation # Unique name for each FOV, e.g., plane_segmentation_FOV_00, plane_segmentation_FOV_01, etc.
@@ -28,7 +28,7 @@ Ophys:
     - name: two_photon_series # Unique name for each FOV, e.g., two_photon_series_FOV_00, two_photon_series_FOV_01, etc.
       description: The two-photon imaging data acquired using the mesoscope.
       imaging_plane: imaging_plane # Unique name for each FOV, e.g., imaging_plane_FOV_00, imaging_plane_FOV_01, etc.
-      device: two_photon_mesoscope
+
   Fluorescence:
     plane_segmentation: # Unique name for each FOV, e.g., plane_segmentation_FOV_00, plane_segmentation_FOV_01, etc.
       raw:
