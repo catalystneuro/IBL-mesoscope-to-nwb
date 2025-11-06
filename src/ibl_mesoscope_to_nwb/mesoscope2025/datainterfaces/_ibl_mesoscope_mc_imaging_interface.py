@@ -51,19 +51,14 @@ class MotionCorrectedMesoscopeImagingInterface(BaseImagingExtractorInterface):
         metadata = super().get_metadata()
         metadata_copy = deepcopy(metadata)  # To avoid modifying the parent class's metadata
         imaging_plane_metadata = metadata_copy["Ophys"]["ImagingPlane"][0]
+        two_photon_series_metadata = metadata_copy["Ophys"]["TwoPhotonSeries"][0]
 
-        excitation_wavelength = 925.0  # in nm, specific to IBL Mesoscope setup
-        imaging_plane_metadata.update(
-            name=f"imaging_plane_{self.two_photon_series_name_suffix}",
-            excitation_lambda=excitation_wavelength,
-            imaging_rate=5.07,
-        )
+        imaging_plane_metadata.update(name=f"imaging_plane_{self.two_photon_series_name_suffix}")
 
         two_photon_series_metadata = metadata_copy["Ophys"]["TwoPhotonSeries"][0]
         two_photon_series_metadata.update(
             name=f"two_photon_series_{self.two_photon_series_name_suffix}",
             imaging_plane=imaging_plane_metadata["name"],
-            unit="px",
         )
 
         return metadata_copy

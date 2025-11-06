@@ -9,39 +9,6 @@ from neuroconv.utils import DeepDict
 from ._ibl_mesoscope_segmentation_extractor import IBLMesoscopeSegmentationExtractor
 
 
-def _update_metadata_links_for_plane_segmentation_name(metadata: dict, plane_segmentation_name: str) -> DeepDict:
-    """Private utility function to update the metadata with a new plane segmentation name."""
-    metadata_copy = deepcopy(metadata)
-
-    plane_segmentation_metadata = metadata_copy["Ophys"]["ImageSegmentation"]["plane_segmentations"][0]
-    default_plane_segmentation_name = plane_segmentation_metadata["name"]
-    default_plane_suffix = default_plane_segmentation_name.replace("PlaneSegmentation", "")
-    new_plane_name_suffix = plane_segmentation_name.replace("PlaneSegmentation", "")
-    imaging_plane_name = "ImagingPlane" + new_plane_name_suffix
-    plane_segmentation_metadata.update(
-        name=plane_segmentation_name,
-        imaging_plane=imaging_plane_name,
-    )
-    metadata_copy["Ophys"]["ImagingPlane"][0].update(name=imaging_plane_name)
-
-    fluorescence_metadata_per_plane = metadata_copy["Ophys"]["Fluorescence"].pop(default_plane_segmentation_name)
-    # override the default name of the plane segmentation
-    metadata_copy["Ophys"]["Fluorescence"][plane_segmentation_name] = fluorescence_metadata_per_plane
-    trace_names = [property_name for property_name in fluorescence_metadata_per_plane.keys() if property_name != "name"]
-    for trace_name in trace_names:
-        default_raw_traces_name = fluorescence_metadata_per_plane[trace_name]["name"].replace(default_plane_suffix, "")
-        fluorescence_metadata_per_plane[trace_name].update(name=default_raw_traces_name + new_plane_name_suffix)
-
-    segmentation_images_metadata = metadata_copy["Ophys"]["SegmentationImages"].pop(default_plane_segmentation_name)
-    metadata_copy["Ophys"]["SegmentationImages"][plane_segmentation_name] = segmentation_images_metadata
-    metadata_copy["Ophys"]["SegmentationImages"][plane_segmentation_name].update(
-        correlation=dict(name=f"CorrelationImage{new_plane_name_suffix}"),
-        mean=dict(name=f"MeanImage{new_plane_name_suffix}"),
-    )
-
-    return metadata_copy
-
-
 class IBLMesoscopeSegmentationInterface(BaseSegmentationExtractorInterface):
     """Interface for IBLMesoscope segmentation data."""
 
@@ -111,14 +78,9 @@ class IBLMesoscopeSegmentationInterface(BaseSegmentationExtractorInterface):
         """
 
         super().__init__(folder_path=folder_path, plane_name=plane_name)
-        available_planes = self.get_available_planes(folder_path=self.source_data["folder_path"])
 
         if plane_segmentation_name is None:
-            plane_segmentation_name = (
-                "PlaneSegmentation"
-                if len(available_planes) == 1
-                else f"PlaneSegmentation{self.segmentation_extractor.plane_name.upper()}"
-            )
+            plane_segmentation_name = f"plane_segmentation_{self.segmentation_extractor.plane_name.upper()}"
 
         self.plane_segmentation_name = plane_segmentation_name
         self.verbose = verbose
@@ -134,18 +96,48 @@ class IBLMesoscopeSegmentationInterface(BaseSegmentationExtractorInterface):
             fluorescence data, and segmentation images.
         """
         metadata = super().get_metadata()
+        metadata_copy = deepcopy(metadata)
 
         # No need to update the metadata links for the default plane segmentation name
-        default_plane_segmentation_name = metadata["Ophys"]["ImageSegmentation"]["plane_segmentations"][0]["name"]
+        default_plane_segmentation_name = metadata_copy["Ophys"]["ImageSegmentation"]["plane_segmentations"][0]["name"]
         if self.plane_segmentation_name == default_plane_segmentation_name:
-            return metadata
+            return metadata_copy
 
-        metadata = _update_metadata_links_for_plane_segmentation_name(
-            metadata=metadata,
-            plane_segmentation_name=self.plane_segmentation_name,
+        plane_segmentation_metadata = metadata_copy["Ophys"]["ImageSegmentation"]["plane_segmentations"][0]
+        imaging_plane_metadata = metadata_copy["Ophys"]["ImagingPlane"][0]
+        fluorescence_metadata = metadata_copy["Ophys"]["Fluorescence"]
+        segmentation_images_metadata = metadata_copy["Ophys"]["SegmentationImages"]
+
+        default_plane_segmentation_name = plane_segmentation_metadata["name"]
+        new_plane_name_suffix = self.plane_segmentation_name.replace("plane_segmentation_", "")
+        imaging_plane_name = "imaging_plane_" + new_plane_name_suffix
+
+        plane_segmentation_metadata.update(
+            name=self.plane_segmentation_name,
+            imaging_plane=imaging_plane_name,
         )
 
-        return metadata
+        imaging_plane_metadata.update(name=imaging_plane_name)
+
+        fluorescence_metadata_per_plane = fluorescence_metadata.pop(default_plane_segmentation_name)
+        # override the default name of the plane segmentation
+        fluorescence_metadata[self.plane_segmentation_name] = fluorescence_metadata_per_plane
+        trace_names = [
+            property_name for property_name in fluorescence_metadata_per_plane.keys() if property_name != "name"
+        ]
+        for trace_name in trace_names:
+            fluorescence_metadata_per_plane[trace_name].update(
+                name=trace_name + "_response_series_" + new_plane_name_suffix
+            )
+
+        segmentation_images_metadata_per_plane = segmentation_images_metadata.pop(default_plane_segmentation_name)
+        segmentation_images_metadata[self.plane_segmentation_name] = segmentation_images_metadata_per_plane
+        segmentation_images_metadata[self.plane_segmentation_name].update(
+            correlation=dict(name=f"correlation_image_{new_plane_name_suffix}"),
+            mean=dict(name=f"mean_image_{new_plane_name_suffix}"),
+        )
+
+        return metadata_copy
 
     def add_to_nwbfile(
         self,

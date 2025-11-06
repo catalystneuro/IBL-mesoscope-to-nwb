@@ -60,7 +60,7 @@ def session_to_nwb(
     metadata["NWBFile"]["session_start_time"] = date
 
     # Update default metadata with the editable in the corresponding yaml file
-    editable_metadata_path = Path(__file__).parent / "metadata/general_metadata.yaml"
+    editable_metadata_path = Path(__file__).parent / "metadata" / "general_metadata.yaml"
     editable_metadata = load_dict_from_file(editable_metadata_path)
     metadata = dict_deep_update(metadata, editable_metadata)
 
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     data_dir_path = Path(r"E:\IBL-data-share\cortexlab\Subjects\SP061\2025-01-28\001")
     output_dir_path = Path(r"E:\ibl_mesoscope_conversion_nwb")
     eid = "5ce2e17e-8471-42d4-8a16-21949710b328"
-    stub_test = False
+    stub_test = True  # Set to True for a quick test conversion with limited data
 
     session_to_nwb(
         data_dir_path=data_dir_path,

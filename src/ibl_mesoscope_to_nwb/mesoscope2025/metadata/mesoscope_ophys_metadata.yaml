@@ -3,9 +3,10 @@ Ophys:
     - name: two_photon_mesoscope
       description: The two photon mesoscope used to acquire green fluorescence on several FOVs.
   ImagingPlane:
-    - name: imaging_plane_FOV_n
+    - name: imaging_plane # Unique name for each FOV, e.g., imaging_plane_FOV_00, imaging_plane_FOV_01, etc.
       description: "Field of view <fov_idx> (UUID: <fov_uuid>). Image Depth: <z_position>um. Center location: ML=<center_mlapdv[0]:.1f>um, AP=<center_mlapdv[1]:.1f>um, DV=<center_mlapdv[2]:.1f>um. Allen CCF 2017 brain region ID: <brain_region_id>. Image dimensions: <dimensions[0]>x<dimensions[1]> pixels."
       excitation_lambda: 920.0 # To be confirmed
+      imaging_rate: 5.07
       location: <brain region ID>
       reference_frame: "Stereotactic coordinates relative to bregma. ML (medial-lateral): positive is lateral (away from midline). AP (anterior-posterior): positive is anterior, negative is posterior. DV (dorsal-ventral): negative is ventral (deeper). Coordinates from Allen Common Coordinate Framework (CCF) 2017."
       origin_coords: <origin_coords>
@@ -20,35 +21,30 @@ Ophys:
       device: two_photon_mesoscope
   ImageSegmentation:
     plane_segmentations:
-      - name: plane_segmentation_FOVn
-        description: The segmentation of ROIs for FOV n.
-        imaging_plane: imaging_plane_FOV_n
+      - name: plane_segmentation # Unique name for each FOV, e.g., plane_segmentation_FOV_00, plane_segmentation_FOV_01, etc.
+        description: The segmentation of ROIs.
+        imaging_plane: imaging_plane
   TwoPhotonSeries:
-    - name: two_photon_series_FOV_n
-      description: The two-photon imaging data acquired from FOV n using the mesoscope.
-      imaging_plane: imaging_plane_FOV_n
+    - name: two_photon_series # Unique name for each FOV, e.g., two_photon_series_FOV_00, two_photon_series_FOV_01, etc.
+      description: The two-photon imaging data acquired using the mesoscope.
+      imaging_plane: imaging_plane # Unique name for each FOV, e.g., imaging_plane_FOV_00, imaging_plane_FOV_01, etc.
       device: two_photon_mesoscope
   Fluorescence:
-    plane_segmentation_FOVn:
+    plane_segmentation: # Unique name for each FOV, e.g., plane_segmentation_FOV_00, plane_segmentation_FOV_01, etc.
       raw:
-        name: raw_roi_response_series_FOV_n
-        description: The raw GCaMP fluorescence traces of FOV n.
+        name: raw_response_series # Unique name for each FOV, e.g., raw_response_series_FOV_00, raw_response_series_FOV_01, etc.
+        description: The raw GCaMP fluorescence traces.
         unit: n.a.
       deconvolved:
-        name: deconvolved_roi_response_series_FOV_n
-        description: The deconvolved activity traces of FOV n.
+        name: deconvolved_response_series # Unique name for each FOV, e.g., deconvolved_response_series_FOV_00, deconvolved_response_series_FOV_01, etc.
+        description: The deconvolved activity traces.
         unit: n.a.
       neuropil:
-        name: neuropil_response_series_FOV_n
-        description: The neuropil traces of FOV n.
+        name: neuropil_response_series # Unique name for each FOV, e.g., neuropil_response_series_FOV_00, neuropil_response_series_FOV_01, etc.
+        description: The neuropil traces.
         unit: n.a.
-  DfOverF:
-    plane_segmentation_FOVn:
-      dff:
-        name: dff_roi_response_series_FOV_n
-        description: The dF/F traces of FOV n.
   SegmentationImages:
-    plane_segmentation_FOVn:
+    plane_segmentation: # Unique name for each FOV, e.g., plane_segmentation_FOV_00, plane_segmentation_FOV_01, etc.
       mean:
-        name: mean_image_FOV_n
-        description: The mean image of FOV n.
+        name: mean_image # Unique name for each FOV, e.g., mean_image_FOV_00, mean_image_FOV_01, etc.
+        description: The mean image.
