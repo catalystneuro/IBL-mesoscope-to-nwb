@@ -3,8 +3,8 @@
 from neuroconv import NWBConverter
 
 from .datainterfaces import (
-    IBLMesoscopeSegmentationInterface,
     IBLMesoscopeMotionCorrectedImagingInterface,
+    IBLMesoscopeSegmentationInterface,
 )
 
 
