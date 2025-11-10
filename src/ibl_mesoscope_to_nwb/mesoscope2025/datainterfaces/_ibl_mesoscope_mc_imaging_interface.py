@@ -9,18 +9,18 @@ from pydantic import FilePath
 from pynwb import NWBFile
 
 from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
-    MotionCorrectedMesoscopeImagingExtractor,
+    IBLMesoscopeMotionCorrectedImagingExtractor,
 )
 
 
-class MotionCorrectedMesoscopeImagingInterface(BaseImagingExtractorInterface):
-    """Data Interface for MotionCorrectedMesoscopeImagingExtractor."""
+class IBLMesoscopeMotionCorrectedImagingInterface(BaseImagingExtractorInterface):
+    """Data Interface for IBLMesoscopeMotionCorrectedImagingExtractor."""
 
     display_name = "IBL Motion Corrected Mesoscope Imaging"
     associated_suffixes = (".bin", ".npy")
     info = "Interface for IBL Motion Corrected Mesoscope imaging data."
 
-    Extractor = MotionCorrectedMesoscopeImagingExtractor
+    Extractor = IBLMesoscopeMotionCorrectedImagingExtractor
 
     def __init__(
         self,
@@ -40,7 +40,7 @@ class MotionCorrectedMesoscopeImagingInterface(BaseImagingExtractorInterface):
 
     def get_metadata(self) -> DeepDict:
         """
-        Get metadata for the Miniscope imaging data.
+        Get metadata for the IBL motion corrected imaging data.
 
         Returns
         -------
@@ -58,7 +58,7 @@ class MotionCorrectedMesoscopeImagingInterface(BaseImagingExtractorInterface):
 
         two_photon_series_metadata = metadata_copy["Ophys"]["TwoPhotonSeries"][0]
         two_photon_series_metadata.update(
-            name=f"two_photon_series_{self.two_photon_series_name_suffix}",
+            name=f"motion_corrected_two_photon_series_{self.two_photon_series_name_suffix}",
             imaging_plane=imaging_plane_metadata["name"],
         )
 

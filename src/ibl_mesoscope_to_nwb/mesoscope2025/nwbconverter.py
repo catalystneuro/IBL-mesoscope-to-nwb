@@ -4,17 +4,17 @@ from neuroconv import NWBConverter
 
 from .datainterfaces import (
     IBLMesoscopeSegmentationInterface,
-    MotionCorrectedMesoscopeImagingInterface,
+    IBLMesoscopeMotionCorrectedImagingInterface,
 )
 
 
-class Mesoscope2025NWBConverter(NWBConverter):
+class ProcessedMesoscopeNWBConverter(NWBConverter):
     """Primary conversion class for my extracellular electrophysiology dataset."""
 
     def __init__(self, source_data: dict, verbose: bool = True):
         data_interface_name_mapping = {
             "Segmentation": IBLMesoscopeSegmentationInterface,
-            "MotionCorrectedImaging": MotionCorrectedMesoscopeImagingInterface,
+            "MotionCorrectedImaging": IBLMesoscopeMotionCorrectedImagingInterface,
         }
 
         for interface_name in source_data.keys():

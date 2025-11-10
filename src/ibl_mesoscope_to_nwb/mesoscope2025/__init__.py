@@ -1,1 +1,1 @@
-from .nwbconverter import Mesoscope2025NWBConverter
+from .nwbconverter import ProcessedMesoscopeNWBConverter

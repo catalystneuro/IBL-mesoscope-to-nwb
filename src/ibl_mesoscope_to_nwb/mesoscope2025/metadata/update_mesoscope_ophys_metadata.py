@@ -201,12 +201,12 @@ def update_mesoscope_ophys_metadata(
 
         ophys_metadata["Ophys"]["ImageSegmentation"]["plane_segmentations"].append(plane_seg)
 
-        # Create TwoPhotonSeries entry for this FOV
-        two_photon_series = two_photon_series_template.copy()
-        two_photon_series["name"] = f"two_photon_series_{fov_name}"
-        two_photon_series["imaging_plane"] = f"imaging_plane_{fov_name}"
+        # Create Motion Corrected TwoPhotonSeries entry for this FOV
+        mc_two_photon_series = two_photon_series_template.copy()
+        mc_two_photon_series["name"] = f"motion_corrected_two_photon_series_{fov_name}"
+        mc_two_photon_series["imaging_plane"] = f"imaging_plane_{fov_name}"
 
-        ophys_metadata["Ophys"]["TwoPhotonSeries"].append(two_photon_series)
+        ophys_metadata["Ophys"]["TwoPhotonSeries"].append(mc_two_photon_series)
 
         # Create Fluorescence entries for this FOV
         plane_seg_key = f"plane_segmentation_{fov_name}"
