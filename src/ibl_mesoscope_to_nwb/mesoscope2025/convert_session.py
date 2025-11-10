@@ -8,33 +8,50 @@ from zoneinfo import ZoneInfo
 from neuroconv.utils import dict_deep_update, load_dict_from_file
 
 from ibl_mesoscope_to_nwb.mesoscope2025 import Mesoscope2025NWBConverter
+from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (  # noqa: F401
+    IBLMesoscopeSegmentationExtractor,
+    MotionCorrectedMesoscopeImagingExtractor,
+)
+from ibl_mesoscope_to_nwb.mesoscope2025.metadata.update_mesoscope_ophys_metadata import update_mesoscope_ophys_metadata
 
 
-def session_to_nwb(data_dir_path: Union[str, Path], output_dir_path: Union[str, Path], stub_test: bool = False):
+def session_to_nwb(
+    data_dir_path: Union[str, Path],
+    output_dir_path: Union[str, Path],
+    subject_id: str,
+    eid: str,
+    stub_test: bool = False,
+    overwrite: bool = False,
+):
 
     data_dir_path = Path(data_dir_path)
     output_dir_path = Path(output_dir_path)
     if stub_test:
         output_dir_path = output_dir_path / "nwb_stub"
     output_dir_path.mkdir(parents=True, exist_ok=True)
-
-    session_id = "subject_identifier_usually"
-    nwbfile_path = output_dir_path / f"{session_id}.nwb"
+    nwbfile_path = output_dir_path / f"sub-{subject_id}_ses-{eid}.nwb"
 
     source_data = dict()
     conversion_options = dict()
 
-    # Add Recording
-    source_data.update(dict(Recording=dict()))
-    conversion_options.update(dict(Recording=dict(stub_test=stub_test)))
+    # Add Motion Corrected Imaging
+    mc_imaging_folder = data_dir_path / "suite2p"
+    available_planes = MotionCorrectedMesoscopeImagingExtractor.get_available_planes(mc_imaging_folder)
+    available_planes = available_planes[:2] if stub_test else available_planes  # Limit to first 2 planes for testing
+    for plane_number, plane_name in enumerate(available_planes):
+        file_path = mc_imaging_folder / plane_name / "imaging.frames_motionRegistered.bin"
+        source_data.update({f"{plane_name}MotionCorrectedImaging": dict(file_path=file_path)})
+        conversion_options.update(
+            {f"{plane_name}MotionCorrectedImaging": dict(stub_test=False, photon_series_index=plane_number)}
+        )
 
-    # Add Sorting
-    source_data.update(dict(Sorting=dict()))
-    conversion_options.update(dict(Sorting=dict()))
-
-    # Add Behavior
-    source_data.update(dict(Behavior=dict()))
-    conversion_options.update(dict(Behavior=dict()))
+    # Add Segmentation
+    segmentation_folder = data_dir_path / "alf"
+    FOV_names = IBLMesoscopeSegmentationExtractor.get_available_planes(segmentation_folder)
+    FOV_names = FOV_names[:2] if stub_test else FOV_names  # Limit to first 2 planes for testing
+    for plane_name in FOV_names:
+        source_data.update({f"{plane_name}Segmentation": dict(folder_path=segmentation_folder, plane_name=plane_name)})
+        conversion_options.update({f"{plane_name}Segmentation": dict(stub_test=stub_test)})
 
     converter = Mesoscope2025NWBConverter(source_data=source_data)
 
@@ -44,25 +61,46 @@ def session_to_nwb(data_dir_path: Union[str, Path], output_dir_path: Union[str, 
     metadata["NWBFile"]["session_start_time"] = date
 
     # Update default metadata with the editable in the corresponding yaml file
-    editable_metadata_path = Path(__file__).parent / "mesoscope2025_metadata.yaml"
+    editable_metadata_path = Path(__file__).parent / "metadata" / "general_metadata.yaml"
     editable_metadata = load_dict_from_file(editable_metadata_path)
     metadata = dict_deep_update(metadata, editable_metadata)
 
-    metadata["Subject"]["subject_id"] = "a_subject_id"  # Modify here or in the yaml file
+    # Update ophys metadata
+    ophys_metadata_path = Path(__file__).parent / "metadata" / "mesoscope_ophys_metadata.yaml"
+    raw_imaging_metadata_path = (
+        data_dir_path / "raw_imaging_data_00" / "_ibl_rawImagingData.meta.json"
+    )  # TODO Confirm that metadata does not change from raw_imaging_data_00 and raw_imaging_data_01
+    updated_ophys_metadata = update_mesoscope_ophys_metadata(
+        ophys_metadata_path=ophys_metadata_path,
+        raw_imaging_metadata_path=raw_imaging_metadata_path,
+        FOV_names=FOV_names,
+    )
+    metadata = dict_deep_update(metadata, updated_ophys_metadata)
+
+    metadata["Subject"]["subject_id"] = subject_id
 
     # Run conversion
-    converter.run_conversion(metadata=metadata, nwbfile_path=nwbfile_path, conversion_options=conversion_options)
+    converter.run_conversion(
+        metadata=metadata,
+        nwbfile_path=nwbfile_path,
+        conversion_options=conversion_options,
+        overwrite=overwrite,
+    )
 
 
 if __name__ == "__main__":
 
     # Parameters for conversion
-    data_dir_path = Path("/Directory/With/Raw/Formats/")
-    output_dir_path = Path("~/conversion_nwb/")
-    stub_test = False
+    data_dir_path = Path(r"E:\IBL-data-share\cortexlab\Subjects\SP061\2025-01-28\001")
+    output_dir_path = Path(r"E:\ibl_mesoscope_conversion_nwb")
+    eid = "5ce2e17e-8471-42d4-8a16-21949710b328"
+    stub_test = True  # Set to True for a quick test conversion with limited data
 
     session_to_nwb(
         data_dir_path=data_dir_path,
         output_dir_path=output_dir_path,
+        subject_id="SP061",
+        eid=eid,
         stub_test=stub_test,
+        overwrite=True,
     )
