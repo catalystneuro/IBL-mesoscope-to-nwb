@@ -5,7 +5,7 @@ from neuroconv import NWBConverter
 from .datainterfaces import IBLMesoscopeRawImagingInterface
 
 
-class RawMesoscope2025NWBConverter(NWBConverter):
+class RawMesoscopeNWBConverter(NWBConverter):
     """Primary conversion class for my extracellular electrophysiology dataset."""
 
     def __init__(self, source_data: dict, verbose: bool = True):
