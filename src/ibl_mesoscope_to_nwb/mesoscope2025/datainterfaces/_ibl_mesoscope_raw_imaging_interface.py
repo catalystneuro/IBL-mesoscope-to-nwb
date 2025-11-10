@@ -1,46 +1,50 @@
 from copy import deepcopy
-from typing import Literal
+from typing import Literal, Optional
 
-from neuroconv.datainterfaces.ophys.baseimagingextractorinterface import (
-    BaseImagingExtractorInterface,
-)
 from neuroconv.utils import DeepDict
 from pydantic import FilePath
 from pynwb import NWBFile
 
-from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
-    MotionCorrectedMesoscopeImagingExtractor,
-)
+from neuroconv.datainterfaces import ScanImageImagingInterface
 
 
-class MotionCorrectedMesoscopeImagingInterface(BaseImagingExtractorInterface):
-    """Data Interface for MotionCorrectedMesoscopeImagingExtractor."""
+class IBLMesoscopeRawImagingInterface(ScanImageImagingInterface):
+    """Data Interface for IBL Mesoscope Raw Imaging data."""
 
-    display_name = "IBL Motion Corrected Mesoscope Imaging"
-    associated_suffixes = (".bin", ".npy")
-    info = "Interface for IBL Motion Corrected Mesoscope imaging data."
+    display_name = "IBL Raw Mesoscope Imaging"
+    associated_suffixes = ".tif"
+    info = "Interface for IBL Raw Mesoscope imaging data."
 
-    Extractor = MotionCorrectedMesoscopeImagingExtractor
+    ExtractorName = "ScanImageImagingExtractor"
 
     def __init__(
         self,
-        file_path: FilePath,
+        file_path: Optional[FilePath] = None,
+        channel_name: Optional[str] = None,
+        slice_sample: Optional[int] = None,
+        plane_index: Optional[int] = None,
+        file_paths: Optional[list[FilePath]] = None,
+        interleave_slice_samples: Optional[bool] = None,
+        plane_name: str | None = None,
+        fallback_sampling_frequency: float | None = None,
         verbose: bool = False,
     ):
 
-        # Validate file path structure
-        if not file_path.name == "imaging.frames_motionRegistered.bin":
-            raise ValueError(f"Expected file named 'imaging.frames_motionRegistered.bin', got '{file_path.name}'")
-
         super().__init__(
             file_path=file_path,
+            channel_name=channel_name,
+            slice_sample=slice_sample,
+            plane_index=plane_index,
+            file_paths=file_paths,
+            interleave_slice_samples=interleave_slice_samples,
+            fallback_sampling_frequency=fallback_sampling_frequency,
             verbose=verbose,
         )
-        self.two_photon_series_name_suffix = self.imaging_extractor._alf_folder.name
+        self.two_photon_series_name_suffix = plane_name
 
     def get_metadata(self) -> DeepDict:
         """
-        Get metadata for the Miniscope imaging data.
+        Get metadata for the IBL imaging data.
 
         Returns
         -------
@@ -70,7 +74,7 @@ class MotionCorrectedMesoscopeImagingInterface(BaseImagingExtractorInterface):
         metadata: dict | None = None,
         photon_series_type: Literal["TwoPhotonSeries"] | Literal["OnePhotonSeries"] = "TwoPhotonSeries",
         photon_series_index: int = 0,
-        parent_container: Literal["acquisition"] | Literal["processing/ophys"] = "processing/ophys",
+        parent_container: Literal["acquisition"] | Literal["processing/ophys"] = "acquisition",
         stub_test: bool = False,
         stub_frames: int | None = None,
         always_write_timestamps: bool = True,

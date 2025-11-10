@@ -2,27 +2,19 @@
 
 from neuroconv import NWBConverter
 
-from .datainterfaces import (
-    IBLMesoscopeSegmentationInterface,
-    MotionCorrectedMesoscopeImagingInterface,
-)
+from .datainterfaces import IBLMesoscopeRawImagingInterface
 
 
-class Mesoscope2025NWBConverter(NWBConverter):
+class RawMesoscope2025NWBConverter(NWBConverter):
     """Primary conversion class for my extracellular electrophysiology dataset."""
 
     def __init__(self, source_data: dict, verbose: bool = True):
         data_interface_name_mapping = {
-            "Segmentation": IBLMesoscopeSegmentationInterface,
-            "MotionCorrectedImaging": MotionCorrectedMesoscopeImagingInterface,
+            "RawImaging": IBLMesoscopeRawImagingInterface,
         }
 
         for interface_name in source_data.keys():
-            if "Segmentation" in interface_name:
-                for key, interface_class in data_interface_name_mapping.items():
-                    if key in interface_name:
-                        self.data_interface_classes[interface_name] = interface_class
-            if "MotionCorrected" in interface_name:
+            if "RawImaging" in interface_name:
                 for key, interface_class in data_interface_name_mapping.items():
                     if key in interface_name:
                         self.data_interface_classes[interface_name] = interface_class

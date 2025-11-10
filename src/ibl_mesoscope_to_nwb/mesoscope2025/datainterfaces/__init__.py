@@ -1,11 +1,5 @@
-from ._ibl_mesoscope_segmentation_extractor import IBLMesoscopeSegmentationExtractor
-from ._ibl_mesoscope_segmentation_interface import IBLMesoscopeSegmentationInterface
-from ._ibl_mesoscope_mc_imaging_extractor import MotionCorrectedMesoscopeImagingExtractor
-from ._ibl_mesoscope_mc_imaging_interface import MotionCorrectedMesoscopeImagingInterface
+from ._ibl_mesoscope_raw_imaging_interface import IBLMesoscopeRawImagingInterface
 
 __all__ = [
-    "IBLMesoscopeSegmentationExtractor",
-    "IBLMesoscopeSegmentationInterface",
-    "MotionCorrectedMesoscopeImagingExtractor",
-    "MotionCorrectedMesoscopeImagingInterface",
+    "IBLMesoscopeRawImagingInterface",
 ]
