@@ -118,6 +118,7 @@ class IBLMesoscopeSegmentationInterface(BaseSegmentationExtractorInterface):
         )
 
         imaging_plane_metadata.update(name=imaging_plane_name)
+        imaging_plane_metadata["optical_channel"].pop()  # Remove default optical channel
 
         fluorescence_metadata_per_plane = fluorescence_metadata.pop(default_plane_segmentation_name)
         # override the default name of the plane segmentation

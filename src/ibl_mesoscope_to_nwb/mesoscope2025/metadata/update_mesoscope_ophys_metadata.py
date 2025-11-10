@@ -142,6 +142,9 @@ def update_mesoscope_ophys_metadata(
     # Get global imaging rate
     imaging_rate = raw_metadata["scanImageParams"]["hRoiManager"]["scanFrameRate"]
 
+    # Get device information (assumed single device)
+    device_metadata = ophys_metadata["Ophys"]["Device"][0]
+
     # Iterate through each FOV
     for fov_idx, fov_name in enumerate(FOV_names):
         fov = raw_metadata["FOV"][fov_idx]
@@ -187,6 +190,7 @@ def update_mesoscope_ophys_metadata(
         imaging_plane["location"] = f"Brain region ID {brain_region_id} (Allen CCF 2017)"
         imaging_plane["origin_coords"] = origin_coords
         imaging_plane["grid_spacing"] = grid_spacing
+        imaging_plane["device"] = device_metadata["name"]
 
         ophys_metadata["Ophys"]["ImagingPlane"].append(imaging_plane)
 
