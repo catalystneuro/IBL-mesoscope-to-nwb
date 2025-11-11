@@ -183,7 +183,6 @@ def update_mesoscope_ophys_metadata(
             f"Field of view {fov_idx} (UUID: {fov_uuid}). "
             f"Center location: ML={center_mlapdv[0]:.1f}um, "
             f"AP={center_mlapdv[1]:.1f}um, DV={center_mlapdv[2]:.1f}um. "
-            f"Allen CCF 2017 brain region ID: {brain_region_id}. "
             f"Image dimensions: {dimensions[0]}x{dimensions[1]} pixels."
         )
         imaging_plane["imaging_rate"] = imaging_rate

@@ -44,13 +44,15 @@ def raw_session_to_nwb(
         raw_metadata = json.load(f)
     num_planes = len(raw_metadata["FOV"])
     FOV_names = [f"FOV_{i:02d}" for i in range(num_planes)]
-    for plane_index, plane_name in enumerate(FOV_names):
+    for plane_index, FOV_name in enumerate(FOV_names):  # Limiting to first 2 FOVs for testing
         source_data.update(
-            {f"{plane_name}RawImaging": dict(file_paths=tiff_files, plane_index=plane_index, channel_name="green")}
+            {
+                f"{FOV_name}RawImaging": dict(
+                    file_paths=tiff_files, plane_index=plane_index, channel_name="Channel 1", FOV_name=FOV_name
+                )
+            }
         )
-        conversion_options.update(
-            {f"{plane_name}RawImaging": dict(stub_test=stub_test, photon_series_index=plane_index)}
-        )
+        conversion_options.update({f"{FOV_name}RawImaging": dict(stub_test=stub_test, photon_series_index=plane_index)})
 
     converter = RawMesoscopeNWBConverter(source_data=source_data)
 
@@ -60,7 +62,7 @@ def raw_session_to_nwb(
     metadata["NWBFile"]["session_start_time"] = date
 
     # Update default metadata with the editable in the corresponding yaml file
-    editable_metadata_path = Path(__file__).parent / "metadata" / "general_metadata.yaml"
+    editable_metadata_path = Path(__file__).parent.parent / "metadata" / "general_metadata.yaml"
     editable_metadata = load_dict_from_file(editable_metadata_path)
     metadata = dict_deep_update(metadata, editable_metadata)
 
