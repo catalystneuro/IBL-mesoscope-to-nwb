@@ -7,7 +7,7 @@ from roiextractors import ImagingExtractor
 
 
 class IBLMesoscopeMotionCorrectedImagingExtractor(ImagingExtractor):
-    """A segmentation extractor for IBL Motion Corrected Mesoscopic raw imaging data (.bin)."""
+    """A segmentation extractor for IBL Motion Corrected Mesoscopic imaging data (.bin)."""
 
     extractor_name = "IBLMesoscopeMotionCorrectedImagingExtractor"
 
@@ -37,12 +37,12 @@ class IBLMesoscopeMotionCorrectedImagingExtractor(ImagingExtractor):
     def __init__(self, file_path: str):
         """Initialize a IBLMesoscopeMotionCorrectedImagingExtractor instance.
 
-        Main class for extracting raw imaging data from .bin format.
+        Main class for extracting imaging data from .bin format.
 
         Parameters
         ----------
         file_path: str or Path
-            Path to the .bin file containing raw imaging data.
+            Path to the .bin file containing imaging data.
             Expected path format: .../suite2p/planeX/imaging.frames_motionRegistered.bin
         """
         super().__init__(file_path=file_path)
