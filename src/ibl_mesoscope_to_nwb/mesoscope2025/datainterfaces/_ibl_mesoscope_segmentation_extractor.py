@@ -6,18 +6,16 @@ IBLMesoscopeSegmentationExtractor
     A segmentation extractor for Suite2p.
 """
 
-from typing import List
-import warnings
-from pydantic import DirectoryPath
 from pathlib import Path
+from typing import List
 from warnings import warn
 
 import numpy as np
-
+import pandas as pd
+from pydantic import DirectoryPath
 from roiextractors import SegmentationExtractor
-from roiextractors.segmentationextractor import _RoiResponse
 from roiextractors.extraction_tools import _image_mask_extractor
-from neuroconv.utils.checks import calculate_regular_series_rate
+from roiextractors.segmentationextractor import _RoiResponse
 
 
 class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
@@ -98,8 +96,13 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
         self._neuropil_masks_file_name = "mpciROIs.neuropilMasks.sparse_npz"
         # summary images
         self._mean_image_file_name = "mpciMeanImage.images.npy"
+        # ROI uuids
+        self._ROIs_uuids_file_name = "mpciROIs.uuids.csv"
 
         self._channel_names = ["OpticalChannel"]
+
+        self.set_property(key="Classifier", values=self.cell_classifier, ids=range(len(self.cell_classifier)))
+        self.set_property(key="UUID", values=self.uuids, ids=range(len(self.uuids)))
 
     def _load_npy(self, file_name: str, mmap_mode=None, transpose: bool = False, require: bool = False):
         """Load a .npy file with specified filename. Returns None if file is missing.
@@ -180,21 +183,28 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
         return self._num_frames
 
     @property
-    def roi_locations(self) -> np.ndarray:
-        """Returns the center locations (x, y, z) of each ROI."""
-        roi_locations = self._load_npy(file_name=self._ROIs_location_file_name, require=True, transpose=True)
-        assert roi_locations is not None, f"{self._ROIs_location_file_name} is required but could not be loaded"
-        return roi_locations
-
-    def get_roi_locations(self, roi_ids=None) -> np.ndarray:
-        return self.roi_locations if roi_ids is None else self.roi_locations[roi_ids]
-
-    @property
     def cell_classifier(self) -> np.ndarray:
         """Returns the cell classifier values for each ROI."""
         cell_classifier = self._load_npy(file_name=self._ROIs_classifier_file_name, require=True)
         assert cell_classifier is not None, f"{self._ROIs_classifier_file_name} is required but could not be loaded"
         return cell_classifier
+
+    @property
+    def uuids(self) -> list[str]:
+        """Returns the UUIDs for each ROI."""
+        csv_file_path = self.folder_path / self.plane_name / self._ROIs_uuids_file_name
+        df = pd.read_csv(csv_file_path, usecols=["uuids"])
+        uuids = df["uuids"].to_list()
+        assert uuids is not None, f"{self._ROIs_uuids_file_name} is required but could not be loaded"
+        return uuids
+
+    def get_roi_locations(self, roi_ids=None) -> np.ndarray:
+        """Returns the center locations (x, y, z) of each ROI."""
+        if not hasattr(self, "roi_locations"):
+            roi_locations = self._load_npy(file_name=self._ROIs_location_file_name, require=True, transpose=True)
+            assert roi_locations is not None, f"{self._ROIs_location_file_name} is required but could not be loaded"
+            self.roi_locations = roi_locations if roi_ids is None else roi_locations[roi_ids]
+        return self.roi_locations
 
     def get_roi_pixel_masks(self, roi_ids=None) -> list[np.ndarray]:
         """Get the pixel masks for the specified ROIs in sparse format.
