@@ -196,6 +196,7 @@ def update_mesoscope_ophys_metadata(
         # Create PlaneSegmentation entry for this FOV
         plane_seg = plane_seg_template.copy()
         plane_seg["name"] = f"plane_segmentation_{fov_name}"
+        plane_seg["description"] = f"Spatial components of segmented ROIs for {fov_name} (UUID: {fov_uuid})."
         plane_seg["imaging_plane"] = f"imaging_plane_{fov_name}"
 
         ophys_metadata["Ophys"]["ImageSegmentation"]["plane_segmentations"].append(plane_seg)
@@ -203,6 +204,9 @@ def update_mesoscope_ophys_metadata(
         # Create Motion Corrected TwoPhotonSeries entry for this FOV
         mc_two_photon_series = two_photon_series_template.copy()
         mc_two_photon_series["name"] = f"motion_corrected_two_photon_series_{fov_name}"
+        mc_two_photon_series["description"] = (
+            f"The motion corrected two-photon imaging data acquired using the mesoscope on {fov_name} (UUID: {fov_uuid})."
+        )
         mc_two_photon_series["imaging_plane"] = f"imaging_plane_{fov_name}"
 
         ophys_metadata["Ophys"]["TwoPhotonSeries"].append(mc_two_photon_series)
@@ -212,17 +216,17 @@ def update_mesoscope_ophys_metadata(
         ophys_metadata["Ophys"]["Fluorescence"][plane_seg_key] = {
             "raw": {
                 "name": f"raw_response_series_{fov_name}",
-                "description": fluorescence_template["plane_segmentation"]["raw"]["description"],
+                "description": f"The raw GCaMP fluorescence traces (temporal components) of segmented ROIs for {fov_name} (UUID: {fov_uuid}).",
                 "unit": fluorescence_template["plane_segmentation"]["raw"]["unit"],
             },
             "deconvolved": {
                 "name": f"deconvolved_response_series_{fov_name}",
-                "description": fluorescence_template["plane_segmentation"]["deconvolved"]["description"],
+                "description": f"The deconvolved activity traces (temporal components) of segmented ROIs for {fov_name} (UUID: {fov_uuid}).",
                 "unit": fluorescence_template["plane_segmentation"]["deconvolved"]["unit"],
             },
             "neuropil": {
                 "name": f"neuropil_response_series_{fov_name}",
-                "description": fluorescence_template["plane_segmentation"]["neuropil"]["description"],
+                "description": f"The neuropil signals (temporal components) for {fov_name} (UUID: {fov_uuid}).",
                 "unit": fluorescence_template["plane_segmentation"]["neuropil"]["unit"],
             },
         }
@@ -231,7 +235,7 @@ def update_mesoscope_ophys_metadata(
         ophys_metadata["Ophys"]["SegmentationImages"][plane_seg_key] = {
             "mean": {
                 "name": f"mean_image_{fov_name}",
-                "description": seg_images_template["plane_segmentation"]["mean"]["description"],
+                "description": f"The mean image for {fov_name} (UUID: {fov_uuid}).",
             }
         }
 
