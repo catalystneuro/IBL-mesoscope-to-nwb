@@ -91,7 +91,7 @@ class IBLMesoscopeRawImagingInterface(BaseImagingExtractorInterface):
         two_photon_series_metadata = metadata_copy["Ophys"]["TwoPhotonSeries"][0]
 
         imaging_plane_metadata.update(name=f"imaging_plane_{self.FOV_name}")
-        # imaging_plane_metadata["optical_channel"].pop()  # Remove default optical channel
+        imaging_plane_metadata["optical_channel"].pop()  # Remove default optical channel
 
         two_photon_series_metadata = metadata_copy["Ophys"]["TwoPhotonSeries"][0]
         two_photon_series_metadata.update(
