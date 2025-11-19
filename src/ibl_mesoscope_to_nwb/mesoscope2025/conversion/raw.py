@@ -88,7 +88,7 @@ def update_raw_ophys_metadata(ophys_metadata_path: Path, raw_imaging_metadata_pa
     Examples
     --------
     >>> from pathlib import Path
-    >>> ophys_path = Path("metadata/raw_ophys_metadata.yaml")
+    >>> ophys_path = Path("metadata/mesoscope_raw_ophys_metadata.yaml")
     >>> raw_path = Path("raw_imaging_data_00/_ibl_rawImagingData.meta.json")
     >>> fov_names = ['FOV_00', 'FOV_01', 'FOV_02']
     >>> metadata = update_raw_ophys_metadata(ophys_path, raw_path, fov_names)
@@ -246,12 +246,12 @@ def raw_session_to_nwb(
     metadata["NWBFile"]["session_start_time"] = date
 
     # Update default metadata with the editable in the corresponding yaml file
-    editable_metadata_path = Path(__file__).parent.parent / "metadata" / "general_metadata.yaml"
+    editable_metadata_path = Path(__file__).parent.parent / "metadata" / "mesoscope_general_metadata.yaml"
     editable_metadata = load_dict_from_file(editable_metadata_path)
     metadata = dict_deep_update(metadata, editable_metadata)
 
     # # Update ophys metadata
-    ophys_metadata_path = Path(__file__).parent.parent / "metadata" / "raw_ophys_metadata.yaml"
+    ophys_metadata_path = Path(__file__).parent.parent / "metadata" / "mesoscope_raw_ophys_metadata.yaml"
     updated_ophys_metadata = update_raw_ophys_metadata(
         ophys_metadata_path=ophys_metadata_path,
         raw_imaging_metadata_path=raw_imaging_metadata_path,
