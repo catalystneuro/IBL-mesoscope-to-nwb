@@ -2,7 +2,7 @@
 
 import time
 from pathlib import Path
-from typing import Union
+from typing import Literal, Union
 
 from ibl_mesoscope_to_nwb.mesoscope2025.conversion import (
     processed_session_to_nwb,
@@ -15,7 +15,7 @@ def session_to_nwb(
     output_dir_path: Union[str, Path],
     subject_id: str,
     eid: str,
-    mode: str = "processed",
+    mode: Literal["processed", "raw"],
     stub_test: bool = False,
     overwrite: bool = False,
 ):
@@ -32,8 +32,8 @@ def session_to_nwb(
         The subject ID for the session.
     eid : str
         The experiment ID (session ID) for the session.
-    mode : str, optional
-        The conversion mode to use, by default "processed".
+    mode : Literal["processed", "raw"]
+        The conversion mode to use.
     stub_test : bool, optional
         Whether to run a stub test with limited data, by default False.
     overwrite : bool, optional
@@ -75,6 +75,7 @@ if __name__ == "__main__":
         output_dir_path=output_dir_path,
         subject_id="SP061",
         eid=eid,
+        mode="raw",
         stub_test=stub_test,
         overwrite=True,
     )
