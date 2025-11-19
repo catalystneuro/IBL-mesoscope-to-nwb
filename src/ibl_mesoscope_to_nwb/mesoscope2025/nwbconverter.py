@@ -9,6 +9,16 @@ class RawMesoscopeNWBConverter(NWBConverter):
     """Primary conversion class for my extracellular electrophysiology dataset."""
 
     def __init__(self, source_data: dict, verbose: bool = True):
+        """
+        Initialize the RawMesoscopeNWBConverter.
+
+        Parameters
+        ----------
+        source_data : dict
+            Dictionary of source data for each data interface.
+        verbose : bool, optional
+            If True, print verbose output, by default True.
+        """
         data_interface_name_mapping = {
             "RawImaging": IBLMesoscopeRawImagingInterface,
         }

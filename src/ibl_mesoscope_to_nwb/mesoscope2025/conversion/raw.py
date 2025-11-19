@@ -188,7 +188,24 @@ def raw_session_to_nwb(
     stub_test: bool = False,
     overwrite: bool = False,
 ):
+    """
+    Convert a raw imaging session to NWB format.
 
+    Parameters
+    ----------
+    data_dir_path : Union[str, Path]
+        Path to the directory containing the raw data.
+    output_dir_path : Union[str, Path]
+        Path to the directory where the NWB file will be saved.
+    subject_id : str
+        Subject identifier.
+    eid : str
+        Experiment identifier.
+    stub_test : bool, optional
+        If True, convert only a subset of data for testing, by default False.
+    overwrite : bool, optional
+        If True, overwrite existing NWB file, by default False.
+    """
     data_dir_path = Path(data_dir_path)
     output_dir_path = Path(output_dir_path)
     if stub_test:

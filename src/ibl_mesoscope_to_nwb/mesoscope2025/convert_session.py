@@ -16,6 +16,26 @@ def session_to_nwb(
     stub_test: bool = False,
     overwrite: bool = False,
 ):
+    """
+    Convert a single session to NWB format.
+
+    Parameters
+    ----------
+    data_dir_path : Union[str, Path]
+        Path to the directory containing the raw data.
+    output_dir_path : Union[str, Path]
+        Path to the directory where the NWB file will be saved.
+    subject_id : str
+        Subject identifier.
+    eid : str
+        Experiment identifier.
+    mode : str, optional
+        Conversion mode, by default "raw".
+    stub_test : bool, optional
+        If True, convert only a subset of data for testing, by default False.
+    overwrite : bool, optional
+        If True, overwrite existing NWB file, by default False.
+    """
     match mode:
         case "raw":
             return raw_session_to_nwb(
