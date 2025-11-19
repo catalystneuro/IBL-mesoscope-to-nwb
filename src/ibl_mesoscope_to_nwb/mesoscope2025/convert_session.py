@@ -1,7 +1,7 @@
 """Primary script to run to convert an entire session for of data using the NWBConverter."""
 
-from pathlib import Path
 import time
+from pathlib import Path
 from typing import Union
 
 from ibl_mesoscope_to_nwb.mesoscope2025.conversion.raw import raw_session_to_nwb
