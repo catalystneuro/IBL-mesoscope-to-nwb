@@ -47,7 +47,7 @@ class IBLMesoscopeMotionCorrectedImagingExtractor(ImagingExtractor):
         """
         super().__init__(file_path=file_path)
         self._file_path = Path(file_path)
-        self._channel_names = ["Green"]
+        self._channel_names = ["green_channel"]
 
         # Validate file path structure
         if not self._file_path.name == "imaging.frames_motionRegistered.bin":

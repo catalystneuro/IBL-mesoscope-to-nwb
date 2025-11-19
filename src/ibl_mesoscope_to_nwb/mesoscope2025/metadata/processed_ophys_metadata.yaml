@@ -23,7 +23,7 @@ Ophys:
       optical_channel:
         - name: green_channel
           emission_lambda: 510.0 # To be confirmed
-          description: Optical channel recording GCaMP6f emission.
+          description: Optical channel recording GCaMP6f Ca2+ bound emission.
 
   ImageSegmentation:
     plane_segmentations:
