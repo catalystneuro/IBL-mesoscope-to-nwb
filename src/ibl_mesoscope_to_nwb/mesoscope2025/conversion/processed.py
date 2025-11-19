@@ -321,12 +321,12 @@ def processed_session_to_nwb(
     metadata["NWBFile"]["session_start_time"] = date
 
     # Update default metadata with the editable in the corresponding yaml file
-    editable_metadata_path = Path(__file__).parent.parent / "metadata" / "general_metadata.yaml"
+    editable_metadata_path = Path(__file__).parent.parent / "metadata" / "mesoscope_general_metadata.yaml"
     editable_metadata = load_dict_from_file(editable_metadata_path)
     metadata = dict_deep_update(metadata, editable_metadata)
 
     # Update ophys metadata
-    ophys_metadata_path = Path(__file__).parent.parent / "metadata" / "processed_ophys_metadata.yaml"
+    ophys_metadata_path = Path(__file__).parent.parent / "metadata" / "mesoscope_processed_ophys_metadata.yaml"
     raw_imaging_metadata_path = data_dir_path / "raw_imaging_data_00" / "_ibl_rawImagingData.meta.json"
     updated_ophys_metadata = update_processed_ophys_metadata(
         ophys_metadata_path=ophys_metadata_path,
