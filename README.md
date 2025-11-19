@@ -52,7 +52,7 @@ Then you can run
 ```bash
 cd IBL-mesoscope-to-nwb
 conda env create --file make_env.yml
-conda activate IBL-mesoscope-to-nwb_env
+conda activate ibl-mesoscope-to-nwb-env
 ```
 
 Alternatively, if you want to avoid conda altogether (for example if you use another virtual environment tool) you can install the repository with the following commands using only pip:

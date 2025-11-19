@@ -3,7 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python>=3.11
+  - python==3.13 # change when Neuroconv PR#1542 is merged
   - pip
   - pip:
       - --editable . # This calls the setup and therefore requirements minimal

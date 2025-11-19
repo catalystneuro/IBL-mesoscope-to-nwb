@@ -19,6 +19,7 @@ dependencies = [
   "nwbinspector",
   "roiextractors",
   "ONE-api",
+  "sparse",
 ]
 
 [project.urls]
@@ -27,7 +28,8 @@ Repository="https://github.com/catalystneuro/IBL-mesoscope-to-nwb"
 [project.optional-dependencies]
 mesoscope2025 = [
   "neuroconv==0.8.1",   # Pinned dependencies to specific versions
-  "roiextractors==0.7.0"
+  "roiextractors==0.7.0",
+  "sparse"  # Required for loading IBL sparse mask format
 ]
 
 [build-system]

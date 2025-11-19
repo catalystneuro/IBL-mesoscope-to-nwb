@@ -1,2 +1,1 @@
-from .behaviorinterface import Mesoscope2025BehaviorInterface
-from .nwbconverter import Mesoscope2025NWBConverter
+from .nwbconverter import ProcessedMesoscopeNWBConverter
