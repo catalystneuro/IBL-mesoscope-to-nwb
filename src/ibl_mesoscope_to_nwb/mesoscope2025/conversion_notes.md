@@ -183,3 +183,84 @@ The `suite2p/` directory contains processing outputs organized by imaging plane 
 - **TSV/CSV**: Tabular metadata and labels
 - **Compressed archives** (`.tar.bz2`, `.zip`): Raw imaging frames and Suite2p data
 
+## Handling ScanImage "Tiled" Display Configuration
+
+### Overview
+
+ScanImage supports a "Tiled" display mode (`SI.hDisplay.volumeDisplayStyle == "Tiled"`) where multiple Fields of View (FOVs) are stored within a single TIFF frame, arranged vertically with spacing between them.
+
+### Tiled Configuration Details
+
+When ScanImage is configured with `volumeDisplayStyle = "Tiled"`:
+
+- **Multiple FOVs per frame**: Each TIFF frame contains data from all FOVs stacked vertically
+- **Inter-tile spacing**: Filler pixels are inserted between each FOV tile for visual separation
+- **Consistent structure**: The number of tiles equals the number of imaging ROIs defined in the acquisition
+
+### Data Structure
+
+For the IBL mesoscope data with 8 FOVs:
+
+```
+Single TIFF frame structure (vertical arrangement):
+┌─────────────────────┐
+│   FOV_00 (512 rows) │
+├─────────────────────┤  ← Filler pixels
+│   FOV_01 (512 rows) │
+├─────────────────────┤  ← Filler pixels
+│   FOV_02 (512 rows) │
+├─────────────────────┤  ← Filler pixels
+│        ...          │
+├─────────────────────┤  ← Filler pixels
+│   FOV_07 (512 rows) │
+└─────────────────────┘
+     512 columns
+```
+
+### Extraction Implementation
+
+The `IBLMesoscopeRawImagingExtractor` detects and handles Tiled configuration as follows:
+
+1. **Detection**: Checks `SI.hDisplay.volumeDisplayStyle` metadata field
+2. **FOV count**: Determines number of FOVs from `RoiGroups.imagingRoiGroup.rois` metadata
+3. **Dimensions**: Extracts individual FOV dimensions from ScanImage metadata:
+   - `SI.hRoiManager.linesPerFrame`: Rows per FOV (512)
+   - `SI.hRoiManager.pixelsPerLine`: Columns per FOV (512)
+4. **Filler pixel calculation**: Computes spacing between tiles:
+   ```
+   filler_pixels = (total_frame_rows - (rows_per_FOV × num_FOVs)) / (num_FOVs - 1)
+   ```
+5. **FOV extraction**: When retrieving data for a specific FOV (via `plane_index` parameter):
+   ```
+   start_row = plane_index × (rows_per_FOV + filler_pixels)
+   end_row = start_row + rows_per_FOV
+   fov_data = full_frame[start_row:end_row, :]
+   ```
+
+### Usage
+
+To extract data for a specific FOV from Tiled configuration files:
+
+```python
+from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import IBLMesoscopeRawImagingExtractor
+
+# Extract FOV_03 (plane_index=3) from tiled data
+extractor = IBLMesoscopeRawImagingExtractor(
+    file_path="path/to/tiled_imaging_data.tif",
+    channel_name="Channel 2",
+    plane_index=3  # Extracts FOV_03
+)
+
+# Get time series data for this specific FOV
+data = extractor.get_series(start_sample=0, end_sample=100)
+# Returns array with shape (100, 512, 512) - only FOV_03 data
+```
+
+### Validation
+
+The extractor performs validation to ensure data integrity:
+
+- **Column consistency**: Verifies that tiles are distributed along rows (not columns)
+- **Filler pixel consistency**: Ensures filler pixels are evenly distributed (must be integer value)
+
+This approach allows efficient extraction of individual FOV data from multi-tile TIFF files without loading the entire dataset into memory.

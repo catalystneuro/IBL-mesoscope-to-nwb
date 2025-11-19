@@ -14,8 +14,12 @@ class IBLMesoscopeRawImagingExtractor(ScanImageImagingExtractor):
     and IFD (Image File Directory) location. This mapping enables efficient retrieval of specific frames
     without loading the entire dataset into memory, making it suitable for large datasets.
 
-    #TODO add note on tile option
-
+    Tiled Configuration Support:
+    - Handles ScanImage "Tiled" display mode (SI.hDisplay.volumeDisplayStyle == "Tiled")
+    - In Tiled mode, multiple FOVs are stored vertically within a single TIFF frame with spacing between them
+    - The plane_index parameter selects which FOV to extract from the tiled frame
+    - Automatically calculates FOV positions and extracts only the requested FOV data
+    - See conversion_notes.md for detailed explanation of Tiled configuration handling
 
     Key features:
     - Handles multi-channel data with channel selection
@@ -72,28 +76,49 @@ class IBLMesoscopeRawImagingExtractor(ScanImageImagingExtractor):
             slice_sample=1,  # IBL acquisition for mesoscopic imaging is setup to acquire one frame per slice per channel
         )
 
+        # Detect if ScanImage is using "Tiled" display mode
+        # In Tiled mode, multiple FOVs are stored vertically in a single TIFF frame with spacing between them
         self.tiled_configuration = self._metadata["SI.hDisplay.volumeDisplayStyle"] == "Tiled"
         self.plane_index = plane_index if plane_index is not None else 0
 
         if self.tiled_configuration:
-            # Assuming that the number of tiles corresponds to the number of FOVs
+            # TILED CONFIGURATION HANDLING:
+            # When ScanImage uses Tiled display mode, each TIFF frame contains multiple FOVs
+            # arranged vertically with filler pixels between them. This section handles the extraction
+            # of a specific FOV from the composite frame.
+
+            # Step 1: Determine the number of FOVs from the ScanImage ROI configuration
+            # Each tile corresponds to one imaging ROI defined in the acquisition
             self.num_FOVs = len(self._general_metadata["RoiGroups"]["imagingRoiGroup"]["rois"])
-            # Assuming that the tiles are evenly distributed
+
+            # Step 2: Read the TIFF file to get actual frame dimensions
             tifffile = get_package(package_name="tifffile")
             tiff_reader = tifffile.TiffReader(self.file_path)
 
             self._general_metadata = tiff_reader.scanimage_metadata
+            # Get the actual dimensions of a single TIFF frame (contains all FOVs)
             sample_num_rows, sample_num_columns = tiff_reader.pages[0].shape
-            self._num_rows = self._metadata["SI.hRoiManager.linesPerFrame"]
-            self._num_columns = self._metadata["SI.hRoiManager.pixelsPerLine"]
-            # check that the tiles are distributed along rows
+
+            # Step 3: Extract the dimensions of individual FOVs from ScanImage metadata
+            # These represent the size of each FOV tile within the larger frame
+            self._num_rows = self._metadata["SI.hRoiManager.linesPerFrame"]  # Rows per FOV (e.g., 512)
+            self._num_columns = self._metadata["SI.hRoiManager.pixelsPerLine"]  # Columns per FOV (e.g., 512)
+
+            # Step 4: Validate that tiles are distributed along rows (vertical stacking)
+            # If columns don't match, it means tiles are arranged horizontally, which is not currently supported
             if sample_num_columns != self._num_columns:
                 raise ValueError(
                     "Tiled configuration detected, but tiles are not distributed along rows. "
                     "This configuration is not yet supported."
                 )
+
+            # Step 5: Calculate the number of filler pixels between FOV tiles
+            # Formula: (total_rows - rows_per_FOV × num_FOVs) / (num_FOVs - 1)
+            # The filler pixels provide visual separation between tiles in the ScanImage display
             self._num_filler_pixels = (sample_num_rows - (self._num_rows * self.num_FOVs)) / (self.num_FOVs - 1)
-            # Check that the number of filler pixels is an integer
+
+            # Step 6: Validate that filler pixels are evenly distributed
+            # The number must be an integer for consistent extraction
             if not self._num_filler_pixels.is_integer():
                 raise ValueError(
                     "Tiled configuration detected, but the number of filler pixels between tiles is not consistent. "
@@ -149,11 +174,26 @@ class IBLMesoscopeRawImagingExtractor(ScanImageImagingExtractor):
                 tiff_reader = self._tiff_readers[file_index]
                 image_file_directory = tiff_reader.pages[ifd_index]
                 if self.tiled_configuration:
-                    # Calculate the start and end rows for the current FOV
+                    # TILED FRAME EXTRACTION:
+                    # In Tiled mode, each TIFF frame contains all FOVs stacked vertically.
+                    # We need to extract only the rows corresponding to the requested FOV (plane_index).
+                    #
+                    # Frame structure:
+                    # FOV_0: rows [0, num_rows)
+                    # Filler: rows [num_rows, num_rows + filler_pixels)
+                    # FOV_1: rows [num_rows + filler_pixels, 2*num_rows + filler_pixels)
+                    # Filler: rows [2*num_rows + filler_pixels, 2*num_rows + 2*filler_pixels)
+                    # FOV_2: ...
+                    #
+                    # General formula for FOV_i:
+                    # start_row = i × (num_rows + filler_pixels)
+                    # end_row = start_row + num_rows
                     start_row = int(self.plane_index * (self._num_rows + self._num_filler_pixels))
                     end_row = int(start_row + self._num_rows)
+                    # Extract only the rows for the requested FOV, discarding filler pixels
                     samples[return_index, :, :, depth_position] = image_file_directory.asarray()[start_row:end_row, :]
                 else:
+                    # Non-tiled mode: the entire frame is the FOV
                     samples[return_index, :, :, depth_position] = image_file_directory.asarray()
 
         # Squeeze the depth dimension if not volumetric
