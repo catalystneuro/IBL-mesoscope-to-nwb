@@ -1,10 +1,11 @@
 from copy import deepcopy
 
+from neuroconv.datainterfaces.ophys.basesegmentationextractorinterface import (
+    BaseSegmentationExtractorInterface,
+)
+from neuroconv.utils import DeepDict
 from pydantic import DirectoryPath, validate_call
 from pynwb import NWBFile
-
-from neuroconv.datainterfaces.ophys.basesegmentationextractorinterface import BaseSegmentationExtractorInterface
-from neuroconv.utils import DeepDict
 
 from ._ibl_mesoscope_segmentation_extractor import IBLMesoscopeSegmentationExtractor
 

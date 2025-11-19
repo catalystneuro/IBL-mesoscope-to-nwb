@@ -10,7 +10,7 @@ import numpy as np
 from neuroconv.utils import dict_deep_update, load_dict_from_file
 
 from ibl_mesoscope_to_nwb.mesoscope2025 import ProcessedMesoscopeNWBConverter
-from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (  # noqa: F401
+from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
     IBLMesoscopeMotionCorrectedImagingExtractor,
     IBLMesoscopeSegmentationExtractor,
 )
