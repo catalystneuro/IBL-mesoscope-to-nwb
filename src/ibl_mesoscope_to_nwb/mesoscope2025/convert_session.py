@@ -4,7 +4,10 @@ import time
 from pathlib import Path
 from typing import Union
 
-from ibl_mesoscope_to_nwb.mesoscope2025.conversion.raw import raw_session_to_nwb
+from ibl_mesoscope_to_nwb.mesoscope2025.conversion import (
+    processed_session_to_nwb,
+    raw_session_to_nwb,
+)
 
 
 def session_to_nwb(
@@ -12,7 +15,7 @@ def session_to_nwb(
     output_dir_path: Union[str, Path],
     subject_id: str,
     eid: str,
-    mode: str = "raw",
+    mode: str = "processed",
     stub_test: bool = False,
     overwrite: bool = False,
 ):
@@ -22,21 +25,30 @@ def session_to_nwb(
     Parameters
     ----------
     data_dir_path : Union[str, Path]
-        Path to the directory containing the raw data.
+        Path to the directory containing the session data.
     output_dir_path : Union[str, Path]
         Path to the directory where the NWB file will be saved.
     subject_id : str
-        Subject identifier.
+        The subject ID for the session.
     eid : str
-        Experiment identifier.
+        The experiment ID (session ID) for the session.
     mode : str, optional
-        Conversion mode, by default "raw".
+        The conversion mode to use, by default "processed".
     stub_test : bool, optional
-        If True, convert only a subset of data for testing, by default False.
+        Whether to run a stub test with limited data, by default False.
     overwrite : bool, optional
-        If True, overwrite existing NWB file, by default False.
+        Whether to overwrite existing NWB files, by default False.
     """
     match mode:
+        case "processed":
+            processed_session_to_nwb(
+                data_dir_path=data_dir_path,
+                output_dir_path=output_dir_path,
+                subject_id=subject_id,
+                eid=eid,
+                stub_test=stub_test,
+                overwrite=overwrite,
+            )
         case "raw":
             return raw_session_to_nwb(
                 data_dir_path=data_dir_path,
@@ -47,7 +59,7 @@ def session_to_nwb(
                 overwrite=overwrite,
             )
         case _:
-            raise ValueError(f"Mode {mode} not recognized. Available modes: 'raw'.")
+            raise ValueError(f"Mode {mode} not recognized. Available modes: 'processed', 'raw'.")
 
 
 if __name__ == "__main__":
