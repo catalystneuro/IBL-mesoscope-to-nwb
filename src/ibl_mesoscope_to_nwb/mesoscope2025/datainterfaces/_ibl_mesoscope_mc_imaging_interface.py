@@ -27,7 +27,17 @@ class IBLMesoscopeMotionCorrectedImagingInterface(BaseImagingExtractorInterface)
         file_path: FilePath,
         verbose: bool = False,
     ):
+        """
+        Initialize the IBLMesoscopeMotionCorrectedImagingInterface.
 
+        Parameters
+        ----------
+        file_path : FilePath
+            Path to the motion corrected imaging binary file.
+            Expected to be named 'imaging.frames_motionRegistered.bin'.
+        verbose : bool, optional
+            Whether to print verbose output, by default False.
+        """
         # Validate file path structure
         if not file_path.name == "imaging.frames_motionRegistered.bin":
             raise ValueError(f"Expected file named 'imaging.frames_motionRegistered.bin', got '{file_path.name}'")

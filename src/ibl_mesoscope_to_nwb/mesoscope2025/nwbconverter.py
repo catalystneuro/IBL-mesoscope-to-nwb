@@ -9,9 +9,21 @@ from .datainterfaces import (
 
 
 class ProcessedMesoscopeNWBConverter(NWBConverter):
-    """Primary conversion class for my extracellular electrophysiology dataset."""
+    """Primary conversion class for processed IBL mesoscope datasets."""
 
     def __init__(self, source_data: dict, verbose: bool = True):
+        """
+        Initialize the ProcessedMesoscopeNWBConverter.
+
+        Parameters
+        ----------
+        source_data : dict
+            Dictionary mapping data interface names to their source data configurations.
+            Keys should contain either 'Segmentation' or 'MotionCorrected' to be
+            automatically mapped to the appropriate data interface class.
+        verbose : bool, optional
+            Whether to print verbose output during conversion, by default True.
+        """
         data_interface_name_mapping = {
             "Segmentation": IBLMesoscopeSegmentationInterface,
             "MotionCorrectedImaging": IBLMesoscopeMotionCorrectedImagingInterface,
