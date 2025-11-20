@@ -51,14 +51,20 @@ class ProcessedMesoscopeNWBConverter(NWBConverter):
         from .datainterfaces import (
             IBLMesoscopeMotionCorrectedImagingInterface,
             IBLMesoscopeSegmentationInterface,
+            IBLMesoscopeAnatomicalLocalizationInterface,
         )
 
         data_interface_name_mapping = {
             "Segmentation": IBLMesoscopeSegmentationInterface,
             "MotionCorrectedImaging": IBLMesoscopeMotionCorrectedImagingInterface,
+            "AnatomicalLocalization": IBLMesoscopeAnatomicalLocalizationInterface,
         }
 
         for interface_name in source_data.keys():
+            if "AnatomicalLocalization" in interface_name:
+                for key, interface_class in data_interface_name_mapping.items():
+                    if key in interface_name:
+                        self.data_interface_classes[interface_name] = interface_class
             if "Segmentation" in interface_name:
                 for key, interface_class in data_interface_name_mapping.items():
                     if key in interface_name:

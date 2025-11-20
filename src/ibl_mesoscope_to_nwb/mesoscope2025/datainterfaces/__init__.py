@@ -4,6 +4,7 @@ from ._ibl_mesoscope_segmentation_extractor import IBLMesoscopeSegmentationExtra
 from ._ibl_mesoscope_segmentation_interface import IBLMesoscopeSegmentationInterface
 from ._ibl_mesoscope_mc_imaging_extractor import IBLMesoscopeMotionCorrectedImagingExtractor
 from ._ibl_mesoscope_mc_imaging_interface import IBLMesoscopeMotionCorrectedImagingInterface
+from ._ibl_mesoscope_anatomical_localization_interface import IBLMesoscopeAnatomicalLocalizationInterface
 
 __all__ = [
     "IBLMesoscopeRawImagingInterface",
@@ -12,4 +13,5 @@ __all__ = [
     "IBLMesoscopeSegmentationInterface",
     "IBLMesoscopeMotionCorrectedImagingExtractor",
     "IBLMesoscopeMotionCorrectedImagingInterface",
+    "IBLMesoscopeAnatomicalLocalizationInterface",
 ]
