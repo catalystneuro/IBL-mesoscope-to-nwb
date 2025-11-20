@@ -68,14 +68,15 @@ if __name__ == "__main__":
     data_dir_path = Path(r"E:\IBL-data-share\cortexlab\Subjects\SP061\2025-01-27\001")
     output_dir_path = Path(r"E:\ibl_mesoscope_conversion_nwb")
     eid = "42d7e11e-3185-4a79-a6ad-bbaf47366db2"
-    stub_test = False  # Set to True for a quick test conversion with limited data
+    stub_test = True  # Set to True for a quick test conversion with limited data
     start_time = time.time()
+    mode = "processed"  # Choose between 'processed' and 'raw'
     session_to_nwb(
         data_dir_path=data_dir_path,
-        output_dir_path=output_dir_path,
+        output_dir_path=output_dir_path / mode,
         subject_id="SP061",
         eid=eid,
-        mode="raw",
+        mode=mode,
         stub_test=stub_test,
         overwrite=True,
     )

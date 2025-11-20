@@ -2,11 +2,11 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
+from ndx_anatomical_localization import AnatomicalCoordinatesTable, Localization, Space
 from neuroconv.basedatainterface import BaseDataInterface
 from pydantic import DirectoryPath
 from pynwb import NWBFile
 from pynwb.ophys import ImageSegmentation
-from ndx_anatomical_localization import AnatomicalCoordinatesTable, Localization, Space, AllenCCFv3Space
 
 
 class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
@@ -206,18 +206,23 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
             nwbfile.add_lab_meta_data(localization)
 
         # Create coordinate space objects
-        self.ccf_space = AllenCCFv3Space(name="AllenCCFv3")
-
-        if self.ccf_space.name not in localization.spaces:
+        if "space" not in localization.spaces:
+            self.ccf_space = Space.get_predefined_space("CCFv3")
             localization.add_spaces(spaces=[self.ccf_space])
+        else:
+            self.ccf_space = localization.spaces["space"]
 
         # Create AnatomicalCoordinatesTable for CCF coordinates
         ccf_table = AnatomicalCoordinatesTable(
             name=f"CCFv3_anatomical_coordinates_{self.plane_name}_rois",
-            description=f"ROI centroid estimated coordinates in the CCF coordinate system",
+            description=f"ROI centroid estimated coordinates in the CCF coordinate system for {self.plane_name.replace('_', ' ')}.",
             target=plane_segmentation,
             space=self.ccf_space,
-            method="IBL histology alignment pipeline",
+            method="TODO: Add method description",
+        )
+        ccf_table.add_column(
+            name="brain_region_id",
+            description="The brain region ID for the ROI in the plane segmentation table.",
         )
 
         # Get anatomical localization data
@@ -230,7 +235,8 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
                 x=float(ccf_mlapdv[roi_index][0]),
                 y=float(ccf_mlapdv[roi_index][1]),
                 z=float(ccf_mlapdv[roi_index][2]),
-                brain_region=ccf_regions[roi_index],
+                brain_region_id=int(ccf_regions[roi_index]),
+                brain_region="TODO",
             )
 
         # Add tables to localization

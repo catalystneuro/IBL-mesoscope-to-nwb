@@ -296,6 +296,10 @@ def processed_session_to_nwb(
 
     # Add Motion Corrected Imaging
     mc_imaging_folder = data_dir_path / "suite2p"
+    if not mc_imaging_folder.exists():
+        mc_imaging_folder = data_dir_path / "suite2"  # correct for typo in folder name
+        if not mc_imaging_folder.exists():
+            raise FileNotFoundError(f"Motion corrected imaging folder not found at {mc_imaging_folder}")
     available_planes = IBLMesoscopeMotionCorrectedImagingExtractor.get_available_planes(mc_imaging_folder)
     available_planes = available_planes[:2] if stub_test else available_planes  # Limit to first 2 planes for testing
     for plane_number, plane_name in enumerate(available_planes):
@@ -311,7 +315,14 @@ def processed_session_to_nwb(
     FOV_names = FOV_names[:2] if stub_test else FOV_names  # Limit to first 2 planes for testing
     for plane_name in FOV_names:
         source_data.update({f"{plane_name}Segmentation": dict(folder_path=segmentation_folder, plane_name=plane_name)})
-        conversion_options.update({f"{plane_name}Segmentation": dict(stub_test=stub_test)})
+        conversion_options.update({f"{plane_name}Segmentation": dict(stub_test=False)})
+
+    # Add anatomical localization
+    for plane_name in FOV_names:
+        source_data.update(
+            {f"{plane_name}AnatomicalLocalization": dict(folder_path=segmentation_folder, plane_name=plane_name)}
+        )
+        conversion_options.update({f"{plane_name}AnatomicalLocalization": dict()})
 
     converter = ProcessedMesoscopeNWBConverter(source_data=source_data)
 
