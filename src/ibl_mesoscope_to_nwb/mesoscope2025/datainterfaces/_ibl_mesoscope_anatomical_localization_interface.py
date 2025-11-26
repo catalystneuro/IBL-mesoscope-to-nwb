@@ -2,10 +2,11 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
-from ndx_anatomical_localization import AnatomicalCoordinatesTable, Localization, Space
+from ndx_anatomical_localization import AnatomicalCoordinatesImage, AnatomicalCoordinatesTable, Localization, Space
 from neuroconv.basedatainterface import BaseDataInterface
 from pydantic import DirectoryPath
 from pynwb import NWBFile
+from pynwb.image import Images
 from pynwb.ophys import ImageSegmentation
 
 
@@ -171,7 +172,6 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
         segmentation_module = None
         for name, proc in nwbfile.processing["ophys"].data_interfaces.items():
             if isinstance(proc, ImageSegmentation):
-                image_segmentation_found = True
                 segmentation_module = nwbfile.processing["ophys"][name]
                 break
 
@@ -226,18 +226,58 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
         )
 
         # Get anatomical localization data
-        ccf_mlapdv = self.get_rois_anatomical_localization()
-        ccf_regions = self.get_rois_brain_location_ids()
+        rois_ccf_mlapdv = self.get_rois_anatomical_localization()
+        rois_ccf_regions = self.get_rois_brain_location_ids()
 
         for roi_index in plane_segmentation.id[:]:
             ccf_table.add_row(
                 localized_entity=roi_index,
-                x=float(ccf_mlapdv[roi_index][0]),
-                y=float(ccf_mlapdv[roi_index][1]),
-                z=float(ccf_mlapdv[roi_index][2]),
-                brain_region_id=int(ccf_regions[roi_index]),
+                x=float(rois_ccf_mlapdv[roi_index][0]),
+                y=float(rois_ccf_mlapdv[roi_index][1]),
+                z=float(rois_ccf_mlapdv[roi_index][2]),
+                brain_region_id=int(rois_ccf_regions[roi_index]),
                 brain_region="TODO",
             )
 
         # Add tables to localization
         localization.add_anatomical_coordinates_tables([ccf_table])
+
+        summary_images_module = None
+        for name, proc in nwbfile.processing["ophys"].data_interfaces.items():
+            if name == "SegmentationImages":
+                summary_images_module = nwbfile.processing["ophys"][name]
+                break
+
+        if summary_images_module is None:
+            raise ValueError("No SegmentationImages data interface found in 'ophys' processing module.")
+
+        mean_image = None
+        if summary_images_module is not None:
+            for mi_name, mi_object in summary_images_module.images.items():
+                if self.plane_name in mi_name:
+                    mean_image = mi_object
+                    break
+        if mean_image is None:
+            raise ValueError(
+                f"The mean image for {self.plane_name} doesn't exist. "
+                "Populate the SegmentationImages first "
+                "(e.g. via IblMesoscopeSegmentationInterface in the processed pipeline) "
+                "before running the anatomical localization interface."
+            )
+        # Get mean image anatomical localization data
+        mean_image_ccf_mlapdv = self.get_mean_image_anatomical_localization()
+        mean_image_ccf_regions = self.get_mean_image_brain_location_id()
+
+        ccf_image = AnatomicalCoordinatesImage(
+            name=f"CCFv3_anatomical_coordinates_{self.plane_name}_mean_image",
+            description=f"Mean image estimated coordinates in the CCF coordinate system for {self.plane_name.replace('_', ' ')}.",
+            space=self.ccf_space,
+            method="TODO: Add method description",
+            image=mean_image,
+            x=mean_image_ccf_mlapdv[:, :, 0],
+            y=mean_image_ccf_mlapdv[:, :, 1],
+            z=mean_image_ccf_mlapdv[:, :, 2],
+            brain_region_id=mean_image_ccf_regions,
+        )
+
+        localization.add_anatomical_coordinates_images([ccf_image])
