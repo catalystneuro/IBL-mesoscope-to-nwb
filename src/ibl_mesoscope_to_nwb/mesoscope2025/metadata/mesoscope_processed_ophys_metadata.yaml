@@ -19,7 +19,7 @@ Ophys:
       origin_coords_unit: meters
       grid_spacing: <grid_spacing>
       grid_spacing_unit: meters
-      indicator: GCaMP6f
+      indicator: GCaMP6s # actually depend on subject --> they extract from subject genotype: https://github.com/int-brain-lab/ibllib/blob/78e82df8a51de0be880ee4076d2bb093bbc1d2c1/ibllib/pipes/mesoscope_tasks.py#L536-L555
       optical_channel:
         - name: OpticalChannel
           emission_lambda: 510.0 # To be confirmed

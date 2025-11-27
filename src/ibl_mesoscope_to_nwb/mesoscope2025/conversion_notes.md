@@ -1,5 +1,5 @@
 # Notes concerning the mesoscope2025 conversion
-https://github.com/int-brain-lab/ibllib/blob/78e82df8a51de0be880ee4076d2bb093bbc1d2c1/ibllib/pipes/mesoscope_tasks.py#L536-L555
+
 ## Source data description
 
 ### Example Session
