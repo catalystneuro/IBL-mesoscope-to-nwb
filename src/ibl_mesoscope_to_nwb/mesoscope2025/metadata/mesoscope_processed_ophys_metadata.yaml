@@ -6,7 +6,7 @@ Ophys:
   TwoPhotonSeries:
     - name: TwoPhotonSeries # Unique name for each FOV, e.g., TwoPhotonSeries_FOV_00, TwoPhotonSeries_FOV_01, etc.
       description: "The <type> two-photon imaging data acquired using the mesoscope on <fov_name> (UUID: <fov_uuid>) ."
-      ImagingPlane: ImagingPlane # Unique name for each FOV, e.g., ImagingPlane_FOV_00, ImagingPlane_FOV_01, etc.
+      imaging_plane: ImagingPlane # Unique name for each FOV, e.g., ImagingPlane_FOV_00, ImagingPlane_FOV_01, etc.
 
   ImagingPlane:
     - name: ImagingPlane # Unique name for each FOV, e.g., ImagingPlane_FOV_00, ImagingPlane_FOV_01, etc.
