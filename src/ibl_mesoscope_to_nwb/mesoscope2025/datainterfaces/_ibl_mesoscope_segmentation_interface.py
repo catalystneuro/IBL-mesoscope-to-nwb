@@ -81,7 +81,7 @@ class IBLMesoscopeSegmentationInterface(BaseSegmentationExtractorInterface):
         super().__init__(folder_path=folder_path, plane_name=plane_name)
 
         if plane_segmentation_name is None:
-            plane_segmentation_name = f"plane_segmentation_{self.segmentation_extractor.plane_name.upper()}"
+            plane_segmentation_name = f"PlaneSegmentation_{self.segmentation_extractor.plane_name.upper()}"
 
         self.plane_segmentation_name = plane_segmentation_name
         self.verbose = verbose
@@ -110,8 +110,8 @@ class IBLMesoscopeSegmentationInterface(BaseSegmentationExtractorInterface):
         segmentation_images_metadata = metadata_copy["Ophys"]["SegmentationImages"]
 
         default_plane_segmentation_name = plane_segmentation_metadata["name"]
-        new_plane_name_suffix = self.plane_segmentation_name.replace("plane_segmentation_", "")
-        imaging_plane_name = "imaging_plane_" + new_plane_name_suffix
+        new_plane_name_suffix = self.plane_segmentation_name.replace("PlaneSegmentation_", "")
+        imaging_plane_name = "ImagingPlane_" + new_plane_name_suffix
 
         plane_segmentation_metadata.update(
             name=self.plane_segmentation_name,
@@ -129,14 +129,14 @@ class IBLMesoscopeSegmentationInterface(BaseSegmentationExtractorInterface):
         ]
         for trace_name in trace_names:
             fluorescence_metadata_per_plane[trace_name].update(
-                name=trace_name + "_response_series_" + new_plane_name_suffix
+                name=trace_name.upper() + "ROIResponseSeries" + new_plane_name_suffix
             )
 
         segmentation_images_metadata_per_plane = segmentation_images_metadata.pop(default_plane_segmentation_name)
         segmentation_images_metadata[self.plane_segmentation_name] = segmentation_images_metadata_per_plane
         segmentation_images_metadata[self.plane_segmentation_name].update(
-            correlation=dict(name=f"correlation_image_{new_plane_name_suffix}"),
-            mean=dict(name=f"mean_image_{new_plane_name_suffix}"),
+            correlation=dict(name=f"CorrelationImage_{new_plane_name_suffix}"),
+            mean=dict(name=f"MeanImage_{new_plane_name_suffix}"),
         )
 
         return metadata_copy

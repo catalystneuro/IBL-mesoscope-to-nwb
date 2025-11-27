@@ -214,7 +214,7 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
 
         # Create AnatomicalCoordinatesTable for CCF coordinates
         ccf_table = AnatomicalCoordinatesTable(
-            name=f"CCFv3_anatomical_coordinates_{self.plane_name}_rois",
+            name=f"ROIsCCFv3AnatomicalCoordinates_{self.plane_name}",
             description=f"ROI centroid estimated coordinates in the CCF coordinate system for {self.plane_name.replace('_', ' ')}.",
             target=plane_segmentation,
             space=self.ccf_space,
@@ -269,7 +269,7 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
         mean_image_ccf_regions = self.get_mean_image_brain_location_id()
 
         ccf_image = AnatomicalCoordinatesImage(
-            name=f"CCFv3_anatomical_coordinates_{self.plane_name}_mean_image",
+            name=f"MeanImageCCFv3AnatomicalCoordinates_{self.plane_name}",
             description=f"Mean image estimated coordinates in the CCF coordinate system for {self.plane_name.replace('_', ' ')}.",
             space=self.ccf_space,
             method="TODO: Add method description",

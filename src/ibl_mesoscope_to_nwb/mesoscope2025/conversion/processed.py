@@ -67,7 +67,7 @@ def update_processed_ophys_metadata(
                 'Device': [...],  # Original device info preserved
                 'ImagingPlane': [  # One entry per FOV
                     {
-                        'name': 'imaging_plane_FOV_00',
+                        'name': 'ImagingPlane_FOV_00',
                         'description': '...',
                         'imaging_rate': 5.07,
                         'location': '...',
@@ -80,8 +80,8 @@ def update_processed_ophys_metadata(
                 'ImageSegmentation': {
                     'plane_segmentations': [  # One entry per FOV
                         {
-                            'name': 'plane_segmentation_FOV_00',
-                            'imaging_plane': 'imaging_plane_FOV_00',
+                            'name': 'PlaneSegmentation_FOV_00',
+                            'imaging_plane': 'ImagingPlane_FOV_00',
                             ...
                         },
                         ...
@@ -89,7 +89,7 @@ def update_processed_ophys_metadata(
                 },
                 'TwoPhotonSeries': [...],  # One entry per FOV
                 'Fluorescence': {  # Dictionary keyed by plane_segmentation name
-                    'plane_segmentation_FOV_00': {
+                    'PlaneSegmentation_FOV_00': {
                         'raw': {...},
                         'deconvolved': {...},
                         'neuropil': {...}
@@ -97,7 +97,7 @@ def update_processed_ophys_metadata(
                     ...
                 },
                 'SegmentationImages': {  # Dictionary keyed by plane_segmentation name
-                    'plane_segmentation_FOV_00': {
+                    'PlaneSegmentation_FOV_00': {
                         'mean': {...}
                     },
                     ...
@@ -124,7 +124,7 @@ def update_processed_ophys_metadata(
     >>> len(metadata['Ophys']['ImagingPlane'])
     3
     >>> metadata['Ophys']['ImagingPlane'][0]['name']
-    'imaging_plane_FOV_00'
+    'ImagingPlane_FOV_00'
     """
 
     # Load ophys metadata structure
@@ -189,7 +189,7 @@ def update_processed_ophys_metadata(
 
         # Create ImagingPlane entry for this FOV
         imaging_plane = imaging_plane_template.copy()
-        imaging_plane["name"] = f"imaging_plane_{fov_name}"
+        imaging_plane["name"] = f"ImagingPlane_{fov_name}"
         imaging_plane["description"] = (
             f"Field of view {fov_idx} (UUID: {fov_uuid}). "
             f"Center location: ML={center_mlapdv[0]:.1f}um, "
@@ -206,37 +206,37 @@ def update_processed_ophys_metadata(
 
         # Create PlaneSegmentation entry for this FOV
         plane_seg = plane_seg_template.copy()
-        plane_seg["name"] = f"plane_segmentation_{fov_name}"
+        plane_seg["name"] = f"PlaneSegmentation_{fov_name}"
         plane_seg["description"] = f"Spatial components of segmented ROIs for {fov_name} (UUID: {fov_uuid})."
-        plane_seg["imaging_plane"] = f"imaging_plane_{fov_name}"
+        plane_seg["imaging_plane"] = f"ImagingPlane_{fov_name}"
 
         ophys_metadata["Ophys"]["ImageSegmentation"]["plane_segmentations"].append(plane_seg)
 
         # Create Motion Corrected TwoPhotonSeries entry for this FOV
         mc_two_photon_series = two_photon_series_template.copy()
-        mc_two_photon_series["name"] = f"motion_corrected_two_photon_series_{fov_name}"
+        mc_two_photon_series["name"] = f"MotionCorrectedTwoPhotonSeries_{fov_name}"
         mc_two_photon_series["description"] = (
             f"The motion corrected two-photon imaging data acquired using the mesoscope on {fov_name} (UUID: {fov_uuid})."
         )
-        mc_two_photon_series["imaging_plane"] = f"imaging_plane_{fov_name}"
+        mc_two_photon_series["imaging_plane"] = f"ImagingPlane_{fov_name}"
 
         ophys_metadata["Ophys"]["TwoPhotonSeries"].append(mc_two_photon_series)
 
         # Create Fluorescence entries for this FOV
-        plane_seg_key = f"plane_segmentation_{fov_name}"
+        plane_seg_key = f"PlaneSegmentation_{fov_name}"
         ophys_metadata["Ophys"]["Fluorescence"][plane_seg_key] = {
             "raw": {
-                "name": f"raw_response_series_{fov_name}",
+                "name": f"RawROIResponseSeries_{fov_name}",
                 "description": f"The raw GCaMP fluorescence traces (temporal components) of segmented ROIs for {fov_name} (UUID: {fov_uuid}).",
                 "unit": fluorescence_template["plane_segmentation"]["raw"]["unit"],
             },
             "deconvolved": {
-                "name": f"deconvolved_response_series_{fov_name}",
+                "name": f"DeconvolvedROIResponseSeries_{fov_name}",
                 "description": f"The deconvolved activity traces (temporal components) of segmented ROIs for {fov_name} (UUID: {fov_uuid}).",
                 "unit": fluorescence_template["plane_segmentation"]["deconvolved"]["unit"],
             },
             "neuropil": {
-                "name": f"neuropil_response_series_{fov_name}",
+                "name": f"NeuropilResponseSeries_{fov_name}",
                 "description": f"The neuropil signals (temporal components) for {fov_name} (UUID: {fov_uuid}).",
                 "unit": fluorescence_template["plane_segmentation"]["neuropil"]["unit"],
             },
@@ -245,7 +245,7 @@ def update_processed_ophys_metadata(
         # Create SegmentationImages entries for this FOV
         ophys_metadata["Ophys"]["SegmentationImages"][plane_seg_key] = {
             "mean": {
-                "name": f"mean_image_{fov_name}",
+                "name": f"MeanImage_{fov_name}",
                 "description": f"The mean image for {fov_name} (UUID: {fov_uuid}).",
             }
         }

@@ -63,12 +63,12 @@ class IBLMesoscopeMotionCorrectedImagingInterface(BaseImagingExtractorInterface)
         imaging_plane_metadata = metadata_copy["Ophys"]["ImagingPlane"][0]
         two_photon_series_metadata = metadata_copy["Ophys"]["TwoPhotonSeries"][0]
 
-        imaging_plane_metadata.update(name=f"imaging_plane_{self.two_photon_series_name_suffix}")
+        imaging_plane_metadata.update(name=f"ImagingPlane_{self.two_photon_series_name_suffix}")
         imaging_plane_metadata["optical_channel"].pop()  # Remove default optical channel
 
         two_photon_series_metadata = metadata_copy["Ophys"]["TwoPhotonSeries"][0]
         two_photon_series_metadata.update(
-            name=f"motion_corrected_two_photon_series_{self.two_photon_series_name_suffix}",
+            name=f"MotionCorrectedTwoPhotonSeries_{self.two_photon_series_name_suffix}",
             imaging_plane=imaging_plane_metadata["name"],
         )
 

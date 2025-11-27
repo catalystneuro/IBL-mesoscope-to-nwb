@@ -1,15 +1,15 @@
 Ophys:
   Device:
-    - name: two_photon_mesoscope
+    - name: TwoPhotonMesoscope
       description: The two photon mesoscope used to acquire green fluorescence on several FOVs.
 
   TwoPhotonSeries:
-    - name: two_photon_series # Unique name for each FOV, e.g., two_photon_series_FOV_00, two_photon_series_FOV_01, etc.
+    - name: TwoPhotonSeries # Unique name for each FOV, e.g., TwoPhotonSeries_FOV_00, TwoPhotonSeries_FOV_01, etc.
       description: "The <type> two-photon imaging data acquired using the mesoscope on <fov_name> (UUID: <fov_uuid>) ."
-      imaging_plane: imaging_plane # Unique name for each FOV, e.g., imaging_plane_FOV_00, imaging_plane_FOV_01, etc.
+      ImagingPlane: ImagingPlane # Unique name for each FOV, e.g., ImagingPlane_FOV_00, ImagingPlane_FOV_01, etc.
 
   ImagingPlane:
-    - name: imaging_plane # Unique name for each FOV, e.g., imaging_plane_FOV_00, imaging_plane_FOV_01, etc.
+    - name: ImagingPlane # Unique name for each FOV, e.g., ImagingPlane_FOV_00, ImagingPlane_FOV_01, etc.
       description: "Field of view <fov_idx> (UUID: <fov_uuid>). Image Depth: <z_position>um. Center location: ML=<center_mlapdv[0]:.1f>um, AP=<center_mlapdv[1]:.1f>um, DV=<center_mlapdv[2]:.1f>um. Allen CCF 2017 brain region ID: <brain_region_id>. Image dimensions: <dimensions[0]>x<dimensions[1]> pixels."
       excitation_lambda: 920.0 # To be confirmed
       imaging_rate: 5.07
@@ -21,32 +21,32 @@ Ophys:
       grid_spacing_unit: meters
       indicator: GCaMP6f
       optical_channel:
-        - name: green_channel
+        - name: OpticalChannel
           emission_lambda: 510.0 # To be confirmed
           description: Optical channel recording GCaMP6f Ca2+ bound emission.
 
   ImageSegmentation:
     plane_segmentations:
-      - name: plane_segmentation # Unique name for each FOV, e.g., plane_segmentation_FOV_00, plane_segmentation_FOV_01, etc.
+      - name: PlaneSegmentation # Unique name for each FOV, e.g., PlaneSegmentation_FOV_00, PlaneSegmentation_FOV_01, etc.
         description: "Spatial components of segmented ROIs for <fov_name> (UUID: <fov_uuid>)."
-        imaging_plane: imaging_plane
+        imaging_plane: ImagingPlane
 
   Fluorescence:
-    plane_segmentation: # Unique name for each FOV, e.g., plane_segmentation_FOV_00, plane_segmentation_FOV_01, etc.
+    plane_segmentation: # Unique name for each FOV, e.g., PlaneSegmentation_FOV_00, PlaneSegmentation_FOV_01, etc.
       raw:
-        name: raw_response_series # Unique name for each FOV, e.g., raw_response_series_FOV_00, raw_response_series_FOV_01, etc.
+        name: RawROIResponseSeries # Unique name for each FOV, e.g., RawROIResponseSeries_FOV_00, RawROIResponseSeries_FOV_01, etc.
         description: "Temporal components of segmented ROIs for <fov_name> (UUID: <fov_uuid>). The raw GCaMP fluorescence traces."
         unit: n.a.
       deconvolved:
-        name: deconvolved_response_series # Unique name for each FOV, e.g., deconvolved_response_series_FOV_00, deconvolved_response_series_FOV_01, etc.
+        name: DeconvolvedROIResponseSeries # Unique name for each FOV, e.g., DeconvolvedROIResponseSeries_FOV_00, DeconvolvedROIResponseSeries_FOV_01, etc.
         description: "Temporal components of segmented ROIs for <fov_name> (UUID: <fov_uuid>). The deconvolved activity traces."
         unit: n.a.
       neuropil:
-        name: neuropil_response_series # Unique name for each FOV, e.g., neuropil_response_series_FOV_00, neuropil_response_series_FOV_01, etc.
+        name: NeuropilResponseSeries # Unique name for each FOV, e.g., NeuropilResponseSeries_FOV_00, NeuropilResponseSeries_FOV_01, etc.
         description: "Temporal components of segmented ROIs for <fov_name> (UUID: <fov_uuid>). The neuropil traces."
         unit: n.a.
   SegmentationImages:
-    plane_segmentation: # Unique name for each FOV, e.g., plane_segmentation_FOV_00, plane_segmentation_FOV_01, etc.
+    plane_segmentation: # Unique name for each FOV, e.g., PlaneSegmentation_FOV_00, PlaneSegmentation_FOV_01, etc.
       mean:
-        name: mean_image # Unique name for each FOV, e.g., mean_image_FOV_00, mean_image_FOV_01, etc.
+        name: MeanImage # Unique name for each FOV, e.g., MeanImage_FOV_00, MeanImage_FOV_01, etc.
         description: "The mean image for <fov_name> (UUID: <fov_uuid>)."
