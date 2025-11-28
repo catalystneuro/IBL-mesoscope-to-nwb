@@ -46,7 +46,7 @@ class IBLMesoscopeMotionCorrectedImagingInterface(BaseImagingExtractorInterface)
             file_path=file_path,
             verbose=verbose,
         )
-        self.two_photon_series_name_suffix = self.imaging_extractor._alf_folder.name
+        self.FOV_name = self.imaging_extractor._alf_folder.name
 
     def get_metadata(self) -> DeepDict:
         """
@@ -58,17 +58,18 @@ class IBLMesoscopeMotionCorrectedImagingInterface(BaseImagingExtractorInterface)
             Dictionary containing metadata including device information, imaging plane details,
             and one-photon series configuration.
         """
+        camel_case_FOV_name = self.FOV_name.replace("_", "")
         metadata = super().get_metadata()
         metadata_copy = deepcopy(metadata)  # To avoid modifying the parent class's metadata
         imaging_plane_metadata = metadata_copy["Ophys"]["ImagingPlane"][0]
         two_photon_series_metadata = metadata_copy["Ophys"]["TwoPhotonSeries"][0]
 
-        imaging_plane_metadata.update(name=f"ImagingPlane_{self.two_photon_series_name_suffix}")
+        imaging_plane_metadata.update(name=f"ImagingPlane{camel_case_FOV_name}")
         imaging_plane_metadata["optical_channel"].pop()  # Remove default optical channel
 
         two_photon_series_metadata = metadata_copy["Ophys"]["TwoPhotonSeries"][0]
         two_photon_series_metadata.update(
-            name=f"MotionCorrectedTwoPhotonSeries_{self.two_photon_series_name_suffix}",
+            name=f"MotionCorrectedTwoPhotonSeries{camel_case_FOV_name}",
             imaging_plane=imaging_plane_metadata["name"],
         )
 

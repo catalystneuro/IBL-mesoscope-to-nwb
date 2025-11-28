@@ -34,22 +34,22 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
 
         Returns
         -------
-        plane_names: list
+        FOV_names: list
             List of plane names.
         """
         from natsort import natsorted
 
         folder_path = Path(folder_path)
         prefix = "FOV_"
-        plane_paths = natsorted(folder_path.glob(pattern=prefix + "*"))
-        assert len(plane_paths), f"No planes found in '{folder_path}'."
-        plane_names = [plane_path.stem for plane_path in plane_paths]
-        return plane_names
+        fov_paths = natsorted(folder_path.glob(pattern=prefix + "*"))
+        assert len(fov_paths), f"No planes found in '{folder_path}'."
+        FOV_names = [fov_path.stem for fov_path in fov_paths]
+        return FOV_names
 
     def __init__(
         self,
         folder_path: DirectoryPath,
-        plane_name: str | None = None,
+        FOV_name: str | None = None,
     ):
         """Create SegmentationExtractor object out of suite 2p data type.
 
@@ -57,27 +57,27 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
         ----------
         folder_path: str or Path
             The path to the 'alf' folder, where processed imaging data is stored.
-        plane_name: str, optional
+        FOV_name: str, optional
             The name of the plane to load, to determine what planes are available use IBLMesoscopeSegmentationExtractor.get_available_planes(folder_path).
         """
 
-        plane_names = self.get_available_planes(folder_path=folder_path)
-        if plane_name is None:
-            if len(plane_names) > 1:
+        FOV_names = self.get_available_planes(folder_path=folder_path)
+        if FOV_name is None:
+            if len(FOV_names) > 1:
                 # For backward compatibility maybe it is better to warn first
                 warn(
-                    "More than one plane is detected! Please specify which plane you wish to load with the `plane_name` argument. "
+                    "More than one plane is detected! Please specify which plane you wish to load with the `FOV_name` argument. "
                     "To see what planes are available, call `IBLMesoscopeSegmentationExtractor.get_available_planes(folder_path=...)`.",
                     UserWarning,
                 )
-            plane_name = plane_names[0]
+            FOV_name = FOV_names[0]
 
-        if plane_name not in plane_names:
+        if FOV_name not in FOV_names:
             raise ValueError(
-                f"The selected plane '{plane_name}' is not a valid plane name. To see what planes are available, "
+                f"The selected plane '{FOV_name}' is not a valid plane name. To see what planes are available, "
                 f"call `IBLMesoscopeSegmentationExtractor.get_available_planes(folder_path=...)`."
             )
-        self.plane_name = plane_name
+        self.FOV_name = FOV_name
 
         super().__init__()
 
@@ -122,7 +122,7 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
         -------
             The loaded .npy file.
         """
-        file_path = self.folder_path / self.plane_name / file_name
+        file_path = self.folder_path / self.FOV_name / file_name
         if not file_path.exists():
             if require:
                 raise FileNotFoundError(f"File {file_path} not found.")
@@ -192,7 +192,7 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
     @property
     def uuids(self) -> list[str]:
         """Returns the UUIDs for each ROI."""
-        csv_file_path = self.folder_path / self.plane_name / self._ROIs_uuids_file_name
+        csv_file_path = self.folder_path / self.FOV_name / self._ROIs_uuids_file_name
         df = pd.read_csv(csv_file_path, usecols=["uuids"])
         uuids = df["uuids"].to_list()
         assert uuids is not None, f"{self._ROIs_uuids_file_name} is required but could not be loaded"
@@ -228,7 +228,7 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
         import sparse
 
         # Load the sparse masks file (using pydata/sparse, not scipy.sparse)
-        file_path = self.folder_path / self.plane_name / self._ROI_masks_file_name
+        file_path = self.folder_path / self.FOV_name / self._ROI_masks_file_name
         with open(file_path, "rb") as fp:
             masks = sparse.load_npz(fp)  # shape: (num_rois, Ly, Lx)
 
@@ -287,7 +287,7 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
         import sparse
 
         # Load the sparse neuropil masks file (using pydata/sparse, not scipy.sparse)
-        file_path = self.folder_path / self.plane_name / self._neuropil_masks_file_name
+        file_path = self.folder_path / self.FOV_name / self._neuropil_masks_file_name
         with open(file_path, "rb") as fp:
             masks = sparse.load_npz(fp)  # shape: (num_background_rois, Ly, Lx)
 

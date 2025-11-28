@@ -33,9 +33,9 @@ class IBLMesoscopeSegmentationInterface(BaseSegmentationExtractorInterface):
         schema["properties"]["folder_path"][
             "description"
         ] = "Path to the folder containing IBLMesoscope segmentation data. Should contain 'FOV_#' subfolder(s)."
-        schema["properties"]["plane_name"][
+        schema["properties"]["FOV_name"][
             "description"
-        ] = "The name of the plane to load. This interface only loads one plane at a time. Use the full name, e.g. 'FOV_00'. If this value is omitted, the first plane found will be loaded."
+        ] = "The name of the FOV to load. This interface only loads one FOV at a time. Use the full name, e.g. 'FOV_00'. If this value is omitted, the first FOV found will be loaded."
 
         return schema
 
@@ -60,8 +60,7 @@ class IBLMesoscopeSegmentationInterface(BaseSegmentationExtractorInterface):
     def __init__(
         self,
         folder_path: DirectoryPath,
-        plane_name: str | None = None,
-        plane_segmentation_name: str | None = None,
+        FOV_name: str | None = None,
         verbose: bool = False,
     ):
         """
@@ -70,20 +69,16 @@ class IBLMesoscopeSegmentationInterface(BaseSegmentationExtractorInterface):
         ----------
         folder_path : DirectoryPath
             Path to the folder containing IBLMesoscope segmentation data. Should contain 'plane#' sub-folders.
-        plane_name: str, optional
+        FOV_name: str, optional
             The name of the plane to load. This interface only loads one plane at a time.
             If this value is omitted, the first plane found will be loaded.
             To determine what planes are available, use ``IBLMesoscopeSegmentationInterface.get_available_planes(folder_path)``.
-        plane_segmentation_name: str, optional
-            The name of the plane segmentation to be added.
         """
 
-        super().__init__(folder_path=folder_path, plane_name=plane_name)
+        super().__init__(folder_path=folder_path, FOV_name=FOV_name)
 
-        if plane_segmentation_name is None:
-            plane_segmentation_name = f"PlaneSegmentation_{self.segmentation_extractor.plane_name.upper()}"
-
-        self.plane_segmentation_name = plane_segmentation_name
+        self.camel_cased_FOV_name = self.segmentation_extractor.FOV_name.replace("_", "")
+        self.plane_segmentation_name = f"PlaneSegmentation{self.camel_cased_FOV_name}"
         self.verbose = verbose
 
     def get_metadata(self) -> DeepDict:
@@ -110,8 +105,7 @@ class IBLMesoscopeSegmentationInterface(BaseSegmentationExtractorInterface):
         segmentation_images_metadata = metadata_copy["Ophys"]["SegmentationImages"]
 
         default_plane_segmentation_name = plane_segmentation_metadata["name"]
-        new_plane_name_suffix = self.plane_segmentation_name.replace("PlaneSegmentation_", "")
-        imaging_plane_name = "ImagingPlane_" + new_plane_name_suffix
+        imaging_plane_name = f"ImagingPlane{self.camel_cased_FOV_name}"
 
         plane_segmentation_metadata.update(
             name=self.plane_segmentation_name,
@@ -129,14 +123,14 @@ class IBLMesoscopeSegmentationInterface(BaseSegmentationExtractorInterface):
         ]
         for trace_name in trace_names:
             fluorescence_metadata_per_plane[trace_name].update(
-                name=trace_name.upper() + "ROIResponseSeries" + new_plane_name_suffix
+                name=trace_name.upper() + f"ROIResponseSeries{self.camel_cased_FOV_name}"
             )
 
         segmentation_images_metadata_per_plane = segmentation_images_metadata.pop(default_plane_segmentation_name)
         segmentation_images_metadata[self.plane_segmentation_name] = segmentation_images_metadata_per_plane
         segmentation_images_metadata[self.plane_segmentation_name].update(
-            correlation=dict(name=f"CorrelationImage_{new_plane_name_suffix}"),
-            mean=dict(name=f"MeanImage_{new_plane_name_suffix}"),
+            correlation=dict(name=f"CorrelationImage{self.camel_cased_FOV_name}"),
+            mean=dict(name=f"MeanImage{self.camel_cased_FOV_name}"),
         )
 
         return metadata_copy
