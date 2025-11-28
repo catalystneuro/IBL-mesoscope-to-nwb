@@ -62,7 +62,7 @@ def update_raw_ophys_metadata(ophys_metadata_path: Path, raw_imaging_metadata_pa
                 'Device': [...],  # Original device info preserved
                 'ImagingPlane': [  # One entry per FOV
                     {
-                        'name': 'ImagingPlane_FOV_00',
+                        'name': 'ImagingPlaneFOV00',
                         'description': '...',
                         'imaging_rate': 5.07,
                         'location': '...',
@@ -95,7 +95,7 @@ def update_raw_ophys_metadata(ophys_metadata_path: Path, raw_imaging_metadata_pa
     >>> len(metadata['Ophys']['ImagingPlane'])
     3
     >>> metadata['Ophys']['ImagingPlane'][0]['name']
-    'ImagingPlane_FOV_00'
+    'ImagingPlaneFOV00'
     """
 
     # Load ophys metadata structure

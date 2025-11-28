@@ -4,12 +4,12 @@ Ophys:
       description: The two photon mesoscope used to acquire green fluorescence on several FOVs.
 
   TwoPhotonSeries:
-    - name: TwoPhotonSeries # Unique name for each FOV, e.g., TwoPhotonSeries_FOV_00, TwoPhotonSeries_FOV_01, etc.
+    - name: TwoPhotonSeries # Unique name for each FOV, e.g., TwoPhotonSeriesFOV00, TwoPhotonSeriesFOV01, etc.
       description: "The <type> two-photon imaging data acquired using the mesoscope on <fov_name> (UUID: <fov_uuid>) ."
-      imaging_plane: ImagingPlane # Unique name for each FOV, e.g., ImagingPlane_FOV_00, ImagingPlane_FOV_01, etc.
+      imaging_plane: ImagingPlane # Unique name for each FOV, e.g., ImagingPlaneFOV00, ImagingPlaneFOV01, etc.
 
   ImagingPlane:
-    - name: ImagingPlane # Unique name for each FOV, e.g., ImagingPlane_FOV_00, ImagingPlane_FOV_01, etc.
+    - name: ImagingPlane # Unique name for each FOV, e.g., ImagingPlaneFOV00, ImagingPlaneFOV01, etc.
       description: "Field of view <fov_idx> (UUID: <fov_uuid>). Center location: ML=<center_mlapdv[0]:.1f>um, AP=<center_mlapdv[1]:.1f>um, DV=<center_mlapdv[2]:.1f>um. Allen CCF 2017 brain region ID: <brain_region_id>. Image dimensions: <dimensions[0]>x<dimensions[1]> pixels."
       excitation_lambda: 920.0 # To be confirmed
       imaging_rate: 5.07
