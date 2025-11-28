@@ -199,6 +199,28 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
                 "before running the anatomical localization interface."
             )
 
+        summary_images_module = None
+        for name, proc in nwbfile.processing["ophys"].data_interfaces.items():
+            if name == "SegmentationImages":
+                summary_images_module = nwbfile.processing["ophys"][name]
+                break
+
+        if summary_images_module is None:
+            raise ValueError("No SegmentationImages data interface found in 'ophys' processing module.")
+
+        mean_image = None
+        if summary_images_module is not None:
+            for mi_name, mi_object in summary_images_module.images.items():
+                if self.plane_name in mi_name:
+                    mean_image = mi_object
+                    break
+        if mean_image is None:
+            raise ValueError(
+                f"The mean image for {self.plane_name} doesn't exist. "
+                "Populate the SegmentationImages first "
+                "(e.g. via IblMesoscopeSegmentationInterface in the processed pipeline) "
+                "before running the anatomical localization interface."
+            )
         # Create or get the Localization container using dict.get
         localization = nwbfile.lab_meta_data.get("localization")
         if localization is None:
@@ -241,29 +263,6 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
 
         # Add tables to localization
         localization.add_anatomical_coordinates_tables([ccf_table])
-
-        summary_images_module = None
-        for name, proc in nwbfile.processing["ophys"].data_interfaces.items():
-            if name == "SegmentationImages":
-                summary_images_module = nwbfile.processing["ophys"][name]
-                break
-
-        if summary_images_module is None:
-            raise ValueError("No SegmentationImages data interface found in 'ophys' processing module.")
-
-        mean_image = None
-        if summary_images_module is not None:
-            for mi_name, mi_object in summary_images_module.images.items():
-                if self.plane_name in mi_name:
-                    mean_image = mi_object
-                    break
-        if mean_image is None:
-            raise ValueError(
-                f"The mean image for {self.plane_name} doesn't exist. "
-                "Populate the SegmentationImages first "
-                "(e.g. via IblMesoscopeSegmentationInterface in the processed pipeline) "
-                "before running the anatomical localization interface."
-            )
         # Get mean image anatomical localization data
         mean_image_ccf_mlapdv = self.get_mean_image_anatomical_localization()
         mean_image_ccf_regions = self.get_mean_image_brain_location_id()
