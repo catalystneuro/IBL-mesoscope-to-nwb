@@ -62,7 +62,7 @@ def update_raw_ophys_metadata(ophys_metadata_path: Path, raw_imaging_metadata_pa
                 'Device': [...],  # Original device info preserved
                 'ImagingPlane': [  # One entry per FOV
                     {
-                        'name': 'imaging_plane_FOV_00',
+                        'name': 'ImagingPlaneFOV00',
                         'description': '...',
                         'imaging_rate': 5.07,
                         'location': '...',
@@ -90,12 +90,12 @@ def update_raw_ophys_metadata(ophys_metadata_path: Path, raw_imaging_metadata_pa
     >>> from pathlib import Path
     >>> ophys_path = Path("metadata/mesoscope_raw_ophys_metadata.yaml")
     >>> raw_path = Path("raw_imaging_data_00/_ibl_rawImagingData.meta.json")
-    >>> fov_names = ['FOV_00', 'FOV_01', 'FOV_02']
-    >>> metadata = update_raw_ophys_metadata(ophys_path, raw_path, fov_names)
+    >>> FOV_names = ['FOV_00', 'FOV_01', 'FOV_02']
+    >>> metadata = update_raw_ophys_metadata(ophys_path, raw_path, FOV_names)
     >>> len(metadata['Ophys']['ImagingPlane'])
     3
     >>> metadata['Ophys']['ImagingPlane'][0]['name']
-    'imaging_plane_FOV_00'
+    'ImagingPlaneFOV00'
     """
 
     # Load ophys metadata structure
@@ -120,8 +120,9 @@ def update_raw_ophys_metadata(ophys_metadata_path: Path, raw_imaging_metadata_pa
     device_metadata = ophys_metadata["Ophys"]["Device"][0]
 
     # Iterate through each FOV
-    for fov_idx, fov_name in enumerate(FOV_names):
-        fov = raw_metadata["FOV"][fov_idx]
+    for FOV_index, FOV_name in enumerate(FOV_names):
+        camel_case_FOV_name = FOV_name.replace("_", "")
+        fov = raw_metadata["FOV"][FOV_index]
 
         # Extract FOV-specific metadata
         fov_uuid = fov["roiUUID"]
@@ -152,9 +153,9 @@ def update_raw_ophys_metadata(ophys_metadata_path: Path, raw_imaging_metadata_pa
 
         # Create ImagingPlane entry for this FOV
         imaging_plane = imaging_plane_template.copy()
-        imaging_plane["name"] = f"imaging_plane_{fov_name}"
+        imaging_plane["name"] = f"ImagingPlane{camel_case_FOV_name}"
         imaging_plane["description"] = (
-            f"Field of view {fov_idx} (UUID: {fov_uuid}). "
+            f"Field of view {FOV_index} (UUID: {fov_uuid}). "
             f"Center location: ML={center_mlapdv[0]:.1f}um, "
             f"AP={center_mlapdv[1]:.1f}um, DV={center_mlapdv[2]:.1f}um. "
             f"Image dimensions: {dimensions[0]}x{dimensions[1]} pixels."
@@ -169,11 +170,11 @@ def update_raw_ophys_metadata(ophys_metadata_path: Path, raw_imaging_metadata_pa
 
         # Create TwoPhotonSeries entry for this FOV
         two_photon_series = two_photon_series_template.copy()
-        two_photon_series["name"] = f"two_photon_series_{fov_name}"
+        two_photon_series["name"] = f"TwoPhotonSeries{camel_case_FOV_name}"
         two_photon_series["description"] = (
-            f"The raw two-photon imaging data acquired using the mesoscope on {fov_name} (UUID: {fov_uuid}) ."
+            f"The raw two-photon imaging data acquired using the mesoscope on {FOV_name} (UUID: {fov_uuid}) ."
         )
-        two_photon_series["imaging_plane"] = f"imaging_plane_{fov_name}"
+        two_photon_series["imaging_plane"] = f"ImagingPlane{camel_case_FOV_name}"
 
         ophys_metadata["Ophys"]["TwoPhotonSeries"].append(two_photon_series)
 

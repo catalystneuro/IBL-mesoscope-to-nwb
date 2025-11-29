@@ -18,7 +18,7 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
     def __init__(
         self,
         folder_path: DirectoryPath,
-        plane_name: str | None = None,
+        FOV_name: str | None = None,
     ):
         """Create SegmentationExtractor object out of suite 2p data type.
 
@@ -26,12 +26,12 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
         ----------
         folder_path: str or Path
             The path to the 'alf' folder, where processed imaging data is stored.
-        plane_name: str, optional
+        FOV_name: str, optional
             The name of the plane to load.
         """
 
         self.folder_path = Path(folder_path)
-        self.plane_name = plane_name
+        self.FOV_name = FOV_name
 
         super().__init__()
 
@@ -59,7 +59,7 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
         -------
             The loaded .npy file.
         """
-        file_path = self.folder_path / self.plane_name / file_name
+        file_path = self.folder_path / self.FOV_name / file_name
         if not file_path.exists():
             if require:
                 raise FileNotFoundError(f"File {file_path} not found.")
@@ -165,7 +165,7 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
         ValueError
             If plane segmentation table doesn't exist or is missing required columns
         """
-
+        camel_case_FOV_name = self.FOV_name.replace("_", "")
         if "ophys" not in nwbfile.processing:
             raise ValueError("No 'ophys' processing module found in NWB file.")
 
@@ -181,19 +181,19 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
         plane_segmentation = None
         if segmentation_module is not None:
             for ps_name, ps_object in segmentation_module.plane_segmentations.items():
-                if self.plane_name in ps_name:
+                if camel_case_FOV_name in ps_name:
                     plane_segmentation = ps_object
                     break
         if plane_segmentation is None:
             raise ValueError(
-                f"Plane segmentation for {self.plane_name} doesn't exist. "
+                f"Plane segmentation for {self.FOV_name} doesn't exist. "
                 "Populate the plane segmentation table first "
                 "(e.g. via IblMesoscopeSegmentationInterface in the processed pipeline) "
                 "before running the anatomical localization interface."
             )
         if len(plane_segmentation) == 0:
             raise ValueError(
-                f"Plane segmentation for {self.plane_name} is empty. "
+                f"Plane segmentation for {self.FOV_name} is empty. "
                 "Populate the plane segmentation table first "
                 "(e.g. via IblMesoscopeSegmentationInterface in the processed pipeline) "
                 "before running the anatomical localization interface."
@@ -211,12 +211,12 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
         mean_image = None
         if summary_images_module is not None:
             for mi_name, mi_object in summary_images_module.images.items():
-                if self.plane_name in mi_name:
+                if camel_case_FOV_name in mi_name:
                     mean_image = mi_object
                     break
         if mean_image is None:
             raise ValueError(
-                f"The mean image for {self.plane_name} doesn't exist. "
+                f"The mean image for {self.FOV_name} doesn't exist. "
                 "Populate the SegmentationImages first "
                 "(e.g. via IblMesoscopeSegmentationInterface in the processed pipeline) "
                 "before running the anatomical localization interface."
@@ -236,8 +236,8 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
 
         # Create AnatomicalCoordinatesTable for CCF coordinates
         ccf_table = AnatomicalCoordinatesTable(
-            name=f"CCFv3_anatomical_coordinates_{self.plane_name}_rois",
-            description=f"ROI centroid estimated coordinates in the CCF coordinate system for {self.plane_name.replace('_', ' ')}.",
+            name=f"ROIsCCFv3AnatomicalCoordinates{camel_case_FOV_name}",
+            description=f"ROI centroid estimated coordinates in the CCF coordinate system for {self.FOV_name}.",
             target=plane_segmentation,
             space=self.ccf_space,
             method="TODO: Add method description",
@@ -268,8 +268,8 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
         mean_image_ccf_regions = self.get_mean_image_brain_location_id()
 
         ccf_image = AnatomicalCoordinatesImage(
-            name=f"CCFv3_anatomical_coordinates_{self.plane_name}_mean_image",
-            description=f"Mean image estimated coordinates in the CCF coordinate system for {self.plane_name.replace('_', ' ')}.",
+            name=f"MeanImageCCFv3AnatomicalCoordinates{camel_case_FOV_name}",
+            description=f"Mean image estimated coordinates in the CCF coordinate system for {self.FOV_name}.",
             space=self.ccf_space,
             method="TODO: Add method description",
             image=mean_image,

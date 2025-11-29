@@ -22,7 +22,7 @@ class IBLMesoscopeMotionCorrectedImagingExtractor(ImagingExtractor):
 
         Returns
         -------
-        plane_names: list
+        FOV_names: list
             List of plane names.
         """
         from natsort import natsorted
@@ -31,8 +31,8 @@ class IBLMesoscopeMotionCorrectedImagingExtractor(ImagingExtractor):
         prefix = "plane"
         plane_paths = natsorted(folder_path.glob(pattern=prefix + "*"))
         assert len(plane_paths), f"No planes found in '{folder_path}'."
-        plane_names = [plane_path.stem for plane_path in plane_paths]
-        return plane_names
+        FOV_names = [plane_path.stem for plane_path in plane_paths]
+        return FOV_names
 
     def __init__(self, file_path: str):
         """Initialize a IBLMesoscopeMotionCorrectedImagingExtractor instance.
@@ -64,8 +64,8 @@ class IBLMesoscopeMotionCorrectedImagingExtractor(ImagingExtractor):
         session_folder = self._file_path.parent.parent.parent
 
         # Construct path to corresponding FOV folder
-        fov_folder_name = f"FOV_{plane_number:02d}"
-        self._alf_folder = session_folder / "alf" / fov_folder_name
+        FOV_name = f"FOV_{plane_number:02d}"
+        self._alf_folder = session_folder / "alf" / FOV_name
 
         if not self._alf_folder.exists():
             raise FileNotFoundError(f"ALF folder not found: {self._alf_folder}")

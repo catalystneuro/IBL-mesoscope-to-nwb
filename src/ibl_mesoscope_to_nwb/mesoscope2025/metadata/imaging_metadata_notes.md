@@ -755,7 +755,7 @@ for fov_idx, fov in enumerate(metadata['FOV']):
     
     # Create ImagingPlane
     imaging_plane = ImagingPlane(
-        name=f'ImagingPlane_FOV{fov_idx:02d}',
+        name=f'ImagingPlaneFOV{fov_idx:02d}',
         
         optical_channel=[optical_channel],
         
@@ -810,15 +810,15 @@ for fov_idx, fov in enumerate(metadata['FOV']):
 
 #### **name** (str)
 ```python
-name = f'ImagingPlane_FOV{fov_idx:02d}'
+name = f'ImagingPlaneFOV{fov_idx:02d}'
 ```
 - Use a descriptive name that includes the FOV index
-- Examples: `'ImagingPlane_FOV00'`, `'ImagingPlane_FOV01'`, etc.
+- Examples: `'ImagingPlaneFOV00'`, `'ImagingPlaneFOV01'`, etc.
 
 #### **optical_channel** (list or OpticalChannel)
 ```python
 optical_channel = OpticalChannel(
-    name='GreenChannel',
+    name='OpticalChannel',
     description='Green fluorescence channel (primary)',
     emission_lambda=510.0  # GCaMP emission peak
 )
@@ -989,7 +989,7 @@ additional_info = {
 ```python
 # Verify the imaging plane was created correctly
 for fov_idx in range(len(metadata['FOV'])):
-    plane_name = f'ImagingPlane_FOV{fov_idx:02d}'
+    plane_name = f'ImagingPlaneFOV{fov_idx:02d}'
     plane = nwbfile.imaging_planes[plane_name]
     
     print(f"\n{plane_name}:")

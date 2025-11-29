@@ -67,7 +67,7 @@ def update_processed_ophys_metadata(
                 'Device': [...],  # Original device info preserved
                 'ImagingPlane': [  # One entry per FOV
                     {
-                        'name': 'imaging_plane_FOV_00',
+                        'name': 'ImagingPlaneFOV00',
                         'description': '...',
                         'imaging_rate': 5.07,
                         'location': '...',
@@ -80,8 +80,8 @@ def update_processed_ophys_metadata(
                 'ImageSegmentation': {
                     'plane_segmentations': [  # One entry per FOV
                         {
-                            'name': 'plane_segmentation_FOV_00',
-                            'imaging_plane': 'imaging_plane_FOV_00',
+                            'name': 'PlaneSegmentationFOV00',
+                            'imaging_plane': 'ImagingPlaneFOV00',
                             ...
                         },
                         ...
@@ -89,7 +89,7 @@ def update_processed_ophys_metadata(
                 },
                 'TwoPhotonSeries': [...],  # One entry per FOV
                 'Fluorescence': {  # Dictionary keyed by plane_segmentation name
-                    'plane_segmentation_FOV_00': {
+                    'PlaneSegmentationFOV00': {
                         'raw': {...},
                         'deconvolved': {...},
                         'neuropil': {...}
@@ -97,7 +97,7 @@ def update_processed_ophys_metadata(
                     ...
                 },
                 'SegmentationImages': {  # Dictionary keyed by plane_segmentation name
-                    'plane_segmentation_FOV_00': {
+                    'PlaneSegmentationFOV00': {
                         'mean': {...}
                     },
                     ...
@@ -119,12 +119,12 @@ def update_processed_ophys_metadata(
     >>> from pathlib import Path
     >>> ophys_path = Path("metadata/mesoscope_ophys_metadata.yaml")
     >>> raw_path = Path("raw_imaging_data_00/_ibl_rawImagingData.meta.json")
-    >>> fov_names = ['FOV_00', 'FOV_01', 'FOV_02']
-    >>> metadata = update_processed_ophys_metadata(ophys_path, raw_path, fov_names)
+    >>> FOV_names = ['FOV_00', 'FOV_01', 'FOV_02']
+    >>> metadata = update_processed_ophys_metadata(ophys_path, raw_path, FOV_names)
     >>> len(metadata['Ophys']['ImagingPlane'])
     3
     >>> metadata['Ophys']['ImagingPlane'][0]['name']
-    'imaging_plane_FOV_00'
+    'ImagingPlaneFOV00'
     """
 
     # Load ophys metadata structure
@@ -157,8 +157,9 @@ def update_processed_ophys_metadata(
     device_metadata = ophys_metadata["Ophys"]["Device"][0]
 
     # Iterate through each FOV
-    for fov_idx, fov_name in enumerate(FOV_names):
-        fov = raw_metadata["FOV"][fov_idx]
+    for FOV_index, FOV_name in enumerate(FOV_names):
+        camel_case_FOV_name = FOV_name.replace("_", "")
+        fov = raw_metadata["FOV"][FOV_index]
 
         # Extract FOV-specific metadata
         fov_uuid = fov["roiUUID"]
@@ -189,9 +190,9 @@ def update_processed_ophys_metadata(
 
         # Create ImagingPlane entry for this FOV
         imaging_plane = imaging_plane_template.copy()
-        imaging_plane["name"] = f"imaging_plane_{fov_name}"
+        imaging_plane["name"] = f"ImagingPlane{camel_case_FOV_name}"
         imaging_plane["description"] = (
-            f"Field of view {fov_idx} (UUID: {fov_uuid}). "
+            f"Field of view {FOV_index} (UUID: {fov_uuid}). "
             f"Center location: ML={center_mlapdv[0]:.1f}um, "
             f"AP={center_mlapdv[1]:.1f}um, DV={center_mlapdv[2]:.1f}um. "
             f"Image dimensions: {dimensions[0]}x{dimensions[1]} pixels."
@@ -206,38 +207,38 @@ def update_processed_ophys_metadata(
 
         # Create PlaneSegmentation entry for this FOV
         plane_seg = plane_seg_template.copy()
-        plane_seg["name"] = f"plane_segmentation_{fov_name}"
-        plane_seg["description"] = f"Spatial components of segmented ROIs for {fov_name} (UUID: {fov_uuid})."
-        plane_seg["imaging_plane"] = f"imaging_plane_{fov_name}"
+        plane_seg["name"] = f"PlaneSegmentation{camel_case_FOV_name}"
+        plane_seg["description"] = f"Spatial components of segmented ROIs for {FOV_name} (UUID: {fov_uuid})."
+        plane_seg["imaging_plane"] = f"ImagingPlane{camel_case_FOV_name}"
 
         ophys_metadata["Ophys"]["ImageSegmentation"]["plane_segmentations"].append(plane_seg)
 
         # Create Motion Corrected TwoPhotonSeries entry for this FOV
         mc_two_photon_series = two_photon_series_template.copy()
-        mc_two_photon_series["name"] = f"motion_corrected_two_photon_series_{fov_name}"
+        mc_two_photon_series["name"] = f"MotionCorrectedTwoPhotonSeries{camel_case_FOV_name}"
         mc_two_photon_series["description"] = (
-            f"The motion corrected two-photon imaging data acquired using the mesoscope on {fov_name} (UUID: {fov_uuid})."
+            f"The motion corrected two-photon imaging data acquired using the mesoscope on {FOV_name} (UUID: {fov_uuid})."
         )
-        mc_two_photon_series["imaging_plane"] = f"imaging_plane_{fov_name}"
+        mc_two_photon_series["imaging_plane"] = f"ImagingPlane{camel_case_FOV_name}"
 
         ophys_metadata["Ophys"]["TwoPhotonSeries"].append(mc_two_photon_series)
 
         # Create Fluorescence entries for this FOV
-        plane_seg_key = f"plane_segmentation_{fov_name}"
+        plane_seg_key = f"PlaneSegmentation{camel_case_FOV_name}"
         ophys_metadata["Ophys"]["Fluorescence"][plane_seg_key] = {
             "raw": {
-                "name": f"raw_response_series_{fov_name}",
-                "description": f"The raw GCaMP fluorescence traces (temporal components) of segmented ROIs for {fov_name} (UUID: {fov_uuid}).",
+                "name": f"RawROIResponseSeries{camel_case_FOV_name}",
+                "description": f"The raw GCaMP fluorescence traces (temporal components) of segmented ROIs for {FOV_name} (UUID: {fov_uuid}).",
                 "unit": fluorescence_template["plane_segmentation"]["raw"]["unit"],
             },
             "deconvolved": {
-                "name": f"deconvolved_response_series_{fov_name}",
-                "description": f"The deconvolved activity traces (temporal components) of segmented ROIs for {fov_name} (UUID: {fov_uuid}).",
+                "name": f"DeconvolvedROIResponseSeries{camel_case_FOV_name}",
+                "description": f"The deconvolved activity traces (temporal components) of segmented ROIs for {FOV_name} (UUID: {fov_uuid}).",
                 "unit": fluorescence_template["plane_segmentation"]["deconvolved"]["unit"],
             },
             "neuropil": {
-                "name": f"neuropil_response_series_{fov_name}",
-                "description": f"The neuropil signals (temporal components) for {fov_name} (UUID: {fov_uuid}).",
+                "name": f"NeuropilResponseSeries{camel_case_FOV_name}",
+                "description": f"The neuropil signals (temporal components) for {FOV_name} (UUID: {fov_uuid}).",
                 "unit": fluorescence_template["plane_segmentation"]["neuropil"]["unit"],
             },
         }
@@ -245,8 +246,8 @@ def update_processed_ophys_metadata(
         # Create SegmentationImages entries for this FOV
         ophys_metadata["Ophys"]["SegmentationImages"][plane_seg_key] = {
             "mean": {
-                "name": f"mean_image_{fov_name}",
-                "description": f"The mean image for {fov_name} (UUID: {fov_uuid}).",
+                "name": f"MeanImage{camel_case_FOV_name}",
+                "description": f"The mean image for {FOV_name} (UUID: {fov_uuid}).",
             }
         }
 
@@ -300,29 +301,29 @@ def processed_session_to_nwb(
         mc_imaging_folder = data_dir_path / "suite2"  # correct for typo in folder name
         if not mc_imaging_folder.exists():
             raise FileNotFoundError(f"Motion corrected imaging folder not found at {mc_imaging_folder}")
-    available_planes = IBLMesoscopeMotionCorrectedImagingExtractor.get_available_planes(mc_imaging_folder)
-    available_planes = available_planes[:2] if stub_test else available_planes  # Limit to first 2 planes for testing
-    for plane_number, plane_name in enumerate(available_planes):
-        file_path = mc_imaging_folder / plane_name / "imaging.frames_motionRegistered.bin"
-        source_data.update({f"{plane_name}MotionCorrectedImaging": dict(file_path=file_path)})
+    available_FOVs = IBLMesoscopeMotionCorrectedImagingExtractor.get_available_planes(mc_imaging_folder)
+    available_FOVs = available_FOVs[:2] if stub_test else available_FOVs  # Limit to first 2 planes for testing
+    for FOV_index, FOV_name in enumerate(available_FOVs):
+        file_path = mc_imaging_folder / FOV_name / "imaging.frames_motionRegistered.bin"
+        source_data.update({f"{FOV_name}MotionCorrectedImaging": dict(file_path=file_path)})
         conversion_options.update(
-            {f"{plane_name}MotionCorrectedImaging": dict(stub_test=False, photon_series_index=plane_number)}
+            {f"{FOV_name}MotionCorrectedImaging": dict(stub_test=False, photon_series_index=FOV_index)}
         )
 
     # Add Segmentation
     segmentation_folder = data_dir_path / "alf"
     FOV_names = IBLMesoscopeSegmentationExtractor.get_available_planes(segmentation_folder)
     FOV_names = FOV_names[:2] if stub_test else FOV_names  # Limit to first 2 planes for testing
-    for plane_name in FOV_names:
-        source_data.update({f"{plane_name}Segmentation": dict(folder_path=segmentation_folder, plane_name=plane_name)})
-        conversion_options.update({f"{plane_name}Segmentation": dict(stub_test=False)})
+    for FOV_name in FOV_names:
+        source_data.update({f"{FOV_name}Segmentation": dict(folder_path=segmentation_folder, FOV_name=FOV_name)})
+        conversion_options.update({f"{FOV_name}Segmentation": dict(stub_test=False)})
 
     # Add anatomical localization
-    for plane_name in FOV_names:
+    for FOV_name in FOV_names:
         source_data.update(
-            {f"{plane_name}AnatomicalLocalization": dict(folder_path=segmentation_folder, plane_name=plane_name)}
+            {f"{FOV_name}AnatomicalLocalization": dict(folder_path=segmentation_folder, FOV_name=FOV_name)}
         )
-        conversion_options.update({f"{plane_name}AnatomicalLocalization": dict()})
+        conversion_options.update({f"{FOV_name}AnatomicalLocalization": dict()})
 
     converter = ProcessedMesoscopeNWBConverter(source_data=source_data)
 
