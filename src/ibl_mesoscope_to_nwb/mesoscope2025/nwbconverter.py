@@ -52,12 +52,14 @@ class ProcessedMesoscopeNWBConverter(NWBConverter):
             IBLMesoscopeMotionCorrectedImagingInterface,
             IBLMesoscopeSegmentationInterface,
             IBLMesoscopeAnatomicalLocalizationInterface,
+            LickInterface,
         )
 
         data_interface_name_mapping = {
             "Segmentation": IBLMesoscopeSegmentationInterface,
             "MotionCorrectedImaging": IBLMesoscopeMotionCorrectedImagingInterface,
             "AnatomicalLocalization": IBLMesoscopeAnatomicalLocalizationInterface,
+            "Lick": LickInterface,
         }
 
         for interface_name in source_data.keys():
@@ -70,6 +72,10 @@ class ProcessedMesoscopeNWBConverter(NWBConverter):
                     if key in interface_name:
                         self.data_interface_classes[interface_name] = interface_class
             if "MotionCorrected" in interface_name:
+                for key, interface_class in data_interface_name_mapping.items():
+                    if key in interface_name:
+                        self.data_interface_classes[interface_name] = interface_class
+            if "Lick" in interface_name:
                 for key, interface_class in data_interface_name_mapping.items():
                     if key in interface_name:
                         self.data_interface_classes[interface_name] = interface_class

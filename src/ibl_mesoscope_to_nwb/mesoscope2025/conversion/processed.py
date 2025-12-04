@@ -311,19 +311,21 @@ def processed_session_to_nwb(
         )
 
     # Add Segmentation
-    segmentation_folder = data_dir_path / "alf"
-    FOV_names = IBLMesoscopeSegmentationExtractor.get_available_planes(segmentation_folder)
+    alf_folder = data_dir_path / "alf"
+    FOV_names = IBLMesoscopeSegmentationExtractor.get_available_planes(alf_folder)
     FOV_names = FOV_names[:2] if stub_test else FOV_names  # Limit to first 2 planes for testing
     for FOV_name in FOV_names:
-        source_data.update({f"{FOV_name}Segmentation": dict(folder_path=segmentation_folder, FOV_name=FOV_name)})
+        source_data.update({f"{FOV_name}Segmentation": dict(folder_path=alf_folder, FOV_name=FOV_name)})
         conversion_options.update({f"{FOV_name}Segmentation": dict(stub_test=False)})
 
-    # Add anatomical localization
+    # Add Anatomical Localization
     for FOV_name in FOV_names:
-        source_data.update(
-            {f"{FOV_name}AnatomicalLocalization": dict(folder_path=segmentation_folder, FOV_name=FOV_name)}
-        )
+        source_data.update({f"{FOV_name}AnatomicalLocalization": dict(folder_path=alf_folder, FOV_name=FOV_name)})
         conversion_options.update({f"{FOV_name}AnatomicalLocalization": dict()})
+
+    # Add Lick Times
+    source_data.update({"LickTimes": dict(folder_path=alf_folder)})
+    conversion_options.update({"LickTimes": dict()})
 
     converter = ProcessedMesoscopeNWBConverter(source_data=source_data)
 
