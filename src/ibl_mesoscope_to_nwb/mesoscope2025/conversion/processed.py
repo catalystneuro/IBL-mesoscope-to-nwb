@@ -327,6 +327,10 @@ def processed_session_to_nwb(
     source_data.update({"LickTimes": dict(folder_path=alf_folder)})
     conversion_options.update({"LickTimes": dict()})
 
+    # Add Wheel Movement
+    source_data.update({"WheelMovement": dict(folder_path=alf_folder / "task_00")})
+    conversion_options.update({"WheelMovement": dict(stub_test=stub_test)})
+
     converter = ProcessedMesoscopeNWBConverter(source_data=source_data)
 
     # Add datetime to conversion

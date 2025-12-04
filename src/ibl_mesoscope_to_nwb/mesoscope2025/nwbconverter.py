@@ -49,10 +49,11 @@ class ProcessedMesoscopeNWBConverter(NWBConverter):
             Whether to print verbose output during conversion, by default True.
         """
         from .datainterfaces import (
+            IBLMesoscopeAnatomicalLocalizationInterface,
             IBLMesoscopeMotionCorrectedImagingInterface,
             IBLMesoscopeSegmentationInterface,
-            IBLMesoscopeAnatomicalLocalizationInterface,
             LickInterface,
+            WheelInterface,
         )
 
         data_interface_name_mapping = {
@@ -60,6 +61,7 @@ class ProcessedMesoscopeNWBConverter(NWBConverter):
             "MotionCorrectedImaging": IBLMesoscopeMotionCorrectedImagingInterface,
             "AnatomicalLocalization": IBLMesoscopeAnatomicalLocalizationInterface,
             "Lick": LickInterface,
+            "Wheel": WheelInterface,
         }
 
         for interface_name in source_data.keys():
@@ -76,6 +78,10 @@ class ProcessedMesoscopeNWBConverter(NWBConverter):
                     if key in interface_name:
                         self.data_interface_classes[interface_name] = interface_class
             if "Lick" in interface_name:
+                for key, interface_class in data_interface_name_mapping.items():
+                    if key in interface_name:
+                        self.data_interface_classes[interface_name] = interface_class
+            if "Wheel" in interface_name:
                 for key, interface_class in data_interface_name_mapping.items():
                     if key in interface_name:
                         self.data_interface_classes[interface_name] = interface_class
