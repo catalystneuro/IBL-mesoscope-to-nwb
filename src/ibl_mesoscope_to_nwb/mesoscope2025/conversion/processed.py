@@ -337,6 +337,11 @@ def processed_session_to_nwb(
         source_data.update({f"{camera_name}ROIMotionEnergy": dict(folder_path=alf_folder, camera_name=camera_name)})
         conversion_options.update({f"{camera_name}ROIMotionEnergy": dict()})
 
+    # Add Pupil Tracking
+    for camera_name in camera_names:
+        source_data.update({f"{camera_name}PupilTracking": dict(folder_path=alf_folder, camera_name=camera_name)})
+        conversion_options.update({f"{camera_name}PupilTracking": dict()})
+
     converter = ProcessedMesoscopeNWBConverter(source_data=source_data)
 
     # Add datetime to conversion

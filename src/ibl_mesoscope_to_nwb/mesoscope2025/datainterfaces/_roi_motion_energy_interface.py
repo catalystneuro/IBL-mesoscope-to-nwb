@@ -23,6 +23,8 @@ class RoiMotionEnergyInterface(BaseDataInterface):
         ----------
         folder_path : DirectoryPath
             Path to the folder containing the ROI motion energy data files.
+        camera_name : str
+            Name of the camera (e.g., 'camera_left', 'camera_right', 'camera_body').
 
         """
 

@@ -53,6 +53,7 @@ class ProcessedMesoscopeNWBConverter(NWBConverter):
             IBLMesoscopeMotionCorrectedImagingInterface,
             IBLMesoscopeSegmentationInterface,
             LickInterface,
+            PupilTrackingInterface,
             RoiMotionEnergyInterface,
             WheelInterface,
         )
@@ -70,5 +71,7 @@ class ProcessedMesoscopeNWBConverter(NWBConverter):
                 self.data_interface_classes[interface_name] = WheelInterface
             if "ROIMotionEnergy" in interface_name:
                 self.data_interface_classes[interface_name] = RoiMotionEnergyInterface
+            if "PupilTracking" in interface_name:
+                self.data_interface_classes[interface_name] = PupilTrackingInterface
 
         super().__init__(source_data=source_data, verbose=verbose)
