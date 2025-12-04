@@ -1,3 +1,4 @@
+from ._brainwide_map_trials_interface import BrainwideMapTrialsInterface
 from ._ibl_mesoscope_anatomical_localization_interface import (
     IBLMesoscopeAnatomicalLocalizationInterface,
 )
@@ -17,6 +18,7 @@ from ._roi_motion_energy_interface import RoiMotionEnergyInterface
 from ._wheel_movement_interface import WheelInterface
 
 __all__ = [
+    "BrainwideMapTrialsInterface",
     "IBLMesoscopeRawImagingInterface",
     "IBLMesoscopeRawImagingExtractor",
     "IBLMesoscopeSegmentationExtractor",

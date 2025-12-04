@@ -49,6 +49,7 @@ class ProcessedMesoscopeNWBConverter(NWBConverter):
             Whether to print verbose output during conversion, by default True.
         """
         from .datainterfaces import (
+            BrainwideMapTrialsInterface,
             IBLMesoscopeAnatomicalLocalizationInterface,
             IBLMesoscopeMotionCorrectedImagingInterface,
             IBLMesoscopeSegmentationInterface,
@@ -73,5 +74,7 @@ class ProcessedMesoscopeNWBConverter(NWBConverter):
                 self.data_interface_classes[interface_name] = RoiMotionEnergyInterface
             if "PupilTracking" in interface_name:
                 self.data_interface_classes[interface_name] = PupilTrackingInterface
+            if "Trials" in interface_name:
+                self.data_interface_classes[interface_name] = BrainwideMapTrialsInterface
 
         super().__init__(source_data=source_data, verbose=verbose)
