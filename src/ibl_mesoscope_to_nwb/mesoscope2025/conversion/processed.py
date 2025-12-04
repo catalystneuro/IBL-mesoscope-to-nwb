@@ -331,6 +331,12 @@ def processed_session_to_nwb(
     source_data.update({"WheelMovement": dict(folder_path=alf_folder / "task_00")})
     conversion_options.update({"WheelMovement": dict(stub_test=stub_test)})
 
+    # Add ROI Motion Energy
+    camera_names = ["rightCamera", "leftCamera"]
+    for camera_name in camera_names:
+        source_data.update({f"{camera_name}ROIMotionEnergy": dict(folder_path=alf_folder, camera_name=camera_name)})
+        conversion_options.update({f"{camera_name}ROIMotionEnergy": dict()})
+
     converter = ProcessedMesoscopeNWBConverter(source_data=source_data)
 
     # Add datetime to conversion

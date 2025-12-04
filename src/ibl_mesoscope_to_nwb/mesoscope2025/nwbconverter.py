@@ -53,37 +53,22 @@ class ProcessedMesoscopeNWBConverter(NWBConverter):
             IBLMesoscopeMotionCorrectedImagingInterface,
             IBLMesoscopeSegmentationInterface,
             LickInterface,
+            RoiMotionEnergyInterface,
             WheelInterface,
         )
 
-        data_interface_name_mapping = {
-            "Segmentation": IBLMesoscopeSegmentationInterface,
-            "MotionCorrectedImaging": IBLMesoscopeMotionCorrectedImagingInterface,
-            "AnatomicalLocalization": IBLMesoscopeAnatomicalLocalizationInterface,
-            "Lick": LickInterface,
-            "Wheel": WheelInterface,
-        }
-
         for interface_name in source_data.keys():
             if "AnatomicalLocalization" in interface_name:
-                for key, interface_class in data_interface_name_mapping.items():
-                    if key in interface_name:
-                        self.data_interface_classes[interface_name] = interface_class
+                self.data_interface_classes[interface_name] = IBLMesoscopeAnatomicalLocalizationInterface
             if "Segmentation" in interface_name:
-                for key, interface_class in data_interface_name_mapping.items():
-                    if key in interface_name:
-                        self.data_interface_classes[interface_name] = interface_class
+                self.data_interface_classes[interface_name] = IBLMesoscopeSegmentationInterface
             if "MotionCorrected" in interface_name:
-                for key, interface_class in data_interface_name_mapping.items():
-                    if key in interface_name:
-                        self.data_interface_classes[interface_name] = interface_class
+                self.data_interface_classes[interface_name] = IBLMesoscopeMotionCorrectedImagingInterface
             if "Lick" in interface_name:
-                for key, interface_class in data_interface_name_mapping.items():
-                    if key in interface_name:
-                        self.data_interface_classes[interface_name] = interface_class
+                self.data_interface_classes[interface_name] = LickInterface
             if "Wheel" in interface_name:
-                for key, interface_class in data_interface_name_mapping.items():
-                    if key in interface_name:
-                        self.data_interface_classes[interface_name] = interface_class
+                self.data_interface_classes[interface_name] = WheelInterface
+            if "ROIMotionEnergy" in interface_name:
+                self.data_interface_classes[interface_name] = RoiMotionEnergyInterface
 
         super().__init__(source_data=source_data, verbose=verbose)
