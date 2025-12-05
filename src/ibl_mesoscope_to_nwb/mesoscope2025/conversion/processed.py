@@ -335,16 +335,16 @@ def processed_session_to_nwb(
     camera_names = ["rightCamera", "leftCamera"]
     for camera_name in camera_names:
         source_data.update({f"{camera_name}ROIMotionEnergy": dict(folder_path=alf_folder, camera_name=camera_name)})
-        conversion_options.update({f"{camera_name}ROIMotionEnergy": dict(stub_test=stub_test)})
+        conversion_options.update({f"{camera_name}ROIMotionEnergy": dict()})
 
     # Add Pupil Tracking
     for camera_name in camera_names:
         source_data.update({f"{camera_name}PupilTracking": dict(folder_path=alf_folder, camera_name=camera_name)})
-        conversion_options.update({f"{camera_name}PupilTracking": dict(stub_test=stub_test)})
+        conversion_options.update({f"{camera_name}PupilTracking": dict()})
 
     # Add Trials
     source_data.update({"Trials": dict(folder_path=alf_folder / "task_00")})
-    conversion_options.update({"Trials": dict()})
+    conversion_options.update({"Trials": dict(stub_test=stub_test, stub_trials=10)})
 
     converter = ProcessedMesoscopeNWBConverter(source_data=source_data)
 

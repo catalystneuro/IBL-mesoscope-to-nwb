@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from hdmf.common import VectorData
 from neuroconv.basedatainterface import BaseDataInterface
@@ -65,10 +66,15 @@ class BrainwideMapTrialsInterface(BaseDataInterface):
             "probabilityLeft",
             "feedback_times",
             "response_times",
-            # "stimOff_times", #not in the table
+            "stimOff_times",  # not in the table
             "stimOn_times",
             "goCue_times",
+            "stimOffTrigger_times",  # not in the table
+            "stimOnTrigger_times",
+            "goCueTrigger_times",
             "firstMovement_times",
+            "included",
+            "quiescencePeriod",
         ]
         columns = [
             VectorData(
@@ -83,13 +89,28 @@ class BrainwideMapTrialsInterface(BaseDataInterface):
             ),
         ]
         for ibl_key in column_ordering:
-            columns.append(
-                VectorData(
-                    name=metadata["Trials"][ibl_key]["name"],
-                    description=metadata["Trials"][ibl_key]["description"],
-                    data=trials[ibl_key].values,
+            if ibl_key not in trials.columns:
+                file_path = self.folder_path / f"_ibl_trials.{ibl_key}.npy"
+                if not file_path.exists():
+                    Warning(f"Trial data for {ibl_key} not found in table or as .npy file.")
+                    continue
+                # Load the .npy file
+                np.load(file_path)
+                columns.append(
+                    VectorData(
+                        name=metadata["Trials"][ibl_key]["name"],
+                        description=metadata["Trials"][ibl_key]["description"],
+                        data=np.load(file_path, allow_pickle=True)[: len(trials)],
+                    )
                 )
-            )
+            else:
+                columns.append(
+                    VectorData(
+                        name=metadata["Trials"][ibl_key]["name"],
+                        description=metadata["Trials"][ibl_key]["description"],
+                        data=trials[ibl_key].values,
+                    )
+                )
         nwbfile.add_time_intervals(
             TimeIntervals(
                 name="trials",

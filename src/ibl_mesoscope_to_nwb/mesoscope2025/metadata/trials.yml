@@ -3,10 +3,18 @@ Trials:
     name: stim_off_time
     description: |
       Time in seconds, relative to the session start, of the stimulus offset, as recorded by an external photodiode.
+  stimOffTrigger_times:
+    name: stim_off_trigger_time
+    description: |
+      Times of visual stimulus offset trigger command, from session start in seconds.
   goCue_times:
     name: go_cue_time
     description: |
       The start time of the go cue tone. This is the time the sound is actually played, that is, the command sent through soundcard sync was fed back into Bpod.  The go cue tone is a 100ms 5 kHz sine wave and occurs approximately at the time of stimulus onset.
+  goCueTrigger_times:
+    name: go_cue_trigger_time
+    description: |
+      Time of go cues in choiceworld - in absolute seconds from session start, rather than relative to trial onset NOTE: this is the time the trigger command is sent.
   response_times:
     name: response_time
     description: |
@@ -19,6 +27,10 @@ Trials:
     name: stim_on_time
     description: |
       The time at which the visual stimulus appears on the screen, as detected by the photodiode which is placed over the sync square that flips colour each time the screen is redrawn.
+  stimOnTrigger_times:
+    name: stim_on_trigger_time
+    description: |
+      Times of visual stimulus onset trigger command, from session start in seconds.
   contrastLeft:
     name: contrast_left
     description: |
@@ -47,3 +59,11 @@ Trials:
     name: first_movement_time
     description: |
       The time of the first detected movement of the trial with a sufficiently large amplitude.  To be counted, the movement must occur between go cue and before feedback time.  The movement onset is sometimes just before the cue (occurring in the gap between quiescence end and cue start, or during the quiescence period but sub-threshold).  The movement is sufficiently large if it is greater than or equal to .1 radians.
+  included:
+    name: included
+    description: |
+      Boolean suggesting which trials to include in analysis, chosen at experimenter discretion, e.g. by excluding the block of incorrect trials at the end of the session when the mouse has stopped.
+  quiescencePeriod:
+    name: quiescence_period
+    description: |
+      TODO add description
