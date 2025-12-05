@@ -335,12 +335,12 @@ def processed_session_to_nwb(
     camera_names = ["rightCamera", "leftCamera"]
     for camera_name in camera_names:
         source_data.update({f"{camera_name}ROIMotionEnergy": dict(folder_path=alf_folder, camera_name=camera_name)})
-        conversion_options.update({f"{camera_name}ROIMotionEnergy": dict()})
+        conversion_options.update({f"{camera_name}ROIMotionEnergy": dict(stub_test=stub_test)})
 
     # Add Pupil Tracking
     for camera_name in camera_names:
         source_data.update({f"{camera_name}PupilTracking": dict(folder_path=alf_folder, camera_name=camera_name)})
-        conversion_options.update({f"{camera_name}PupilTracking": dict()})
+        conversion_options.update({f"{camera_name}PupilTracking": dict(stub_test=stub_test)})
 
     # Add Trials
     source_data.update({"Trials": dict(folder_path=alf_folder / "task_00")})
