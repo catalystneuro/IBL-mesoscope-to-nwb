@@ -311,19 +311,40 @@ def processed_session_to_nwb(
         )
 
     # Add Segmentation
-    segmentation_folder = data_dir_path / "alf"
-    FOV_names = IBLMesoscopeSegmentationExtractor.get_available_planes(segmentation_folder)
+    alf_folder = data_dir_path / "alf"
+    FOV_names = IBLMesoscopeSegmentationExtractor.get_available_planes(alf_folder)
     FOV_names = FOV_names[:2] if stub_test else FOV_names  # Limit to first 2 planes for testing
     for FOV_name in FOV_names:
-        source_data.update({f"{FOV_name}Segmentation": dict(folder_path=segmentation_folder, FOV_name=FOV_name)})
+        source_data.update({f"{FOV_name}Segmentation": dict(folder_path=alf_folder, FOV_name=FOV_name)})
         conversion_options.update({f"{FOV_name}Segmentation": dict(stub_test=False)})
 
-    # Add anatomical localization
+    # Add Anatomical Localization
     for FOV_name in FOV_names:
-        source_data.update(
-            {f"{FOV_name}AnatomicalLocalization": dict(folder_path=segmentation_folder, FOV_name=FOV_name)}
-        )
+        source_data.update({f"{FOV_name}AnatomicalLocalization": dict(folder_path=alf_folder, FOV_name=FOV_name)})
         conversion_options.update({f"{FOV_name}AnatomicalLocalization": dict()})
+
+    # Add Lick Times
+    source_data.update({"LickTimes": dict(folder_path=alf_folder)})
+    conversion_options.update({"LickTimes": dict()})
+
+    # Add Wheel Movement
+    source_data.update({"WheelMovement": dict(folder_path=alf_folder / "task_00")})
+    conversion_options.update({"WheelMovement": dict(stub_test=stub_test)})
+
+    # Add ROI Motion Energy
+    camera_names = ["rightCamera", "leftCamera"]
+    for camera_name in camera_names:
+        source_data.update({f"{camera_name}ROIMotionEnergy": dict(folder_path=alf_folder, camera_name=camera_name)})
+        conversion_options.update({f"{camera_name}ROIMotionEnergy": dict()})
+
+    # Add Pupil Tracking
+    for camera_name in camera_names:
+        source_data.update({f"{camera_name}PupilTracking": dict(folder_path=alf_folder, camera_name=camera_name)})
+        conversion_options.update({f"{camera_name}PupilTracking": dict()})
+
+    # Add Trials
+    source_data.update({"Trials": dict(folder_path=alf_folder / "task_00")})
+    conversion_options.update({"Trials": dict(stub_test=stub_test, stub_trials=10)})
 
     converter = ProcessedMesoscopeNWBConverter(source_data=source_data)
 
