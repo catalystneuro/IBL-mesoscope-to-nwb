@@ -14,6 +14,7 @@ from ._ibl_mesoscope_segmentation_extractor import IBLMesoscopeSegmentationExtra
 from ._ibl_mesoscope_segmentation_interface import IBLMesoscopeSegmentationInterface
 from ._lick_times_interface import LickInterface
 from ._pupil_tracking_interface import PupilTrackingInterface
+from ._raw_video_interface import RawVideoInterface
 from ._roi_motion_energy_interface import RoiMotionEnergyInterface
 from ._wheel_movement_interface import WheelInterface
 
@@ -28,6 +29,7 @@ __all__ = [
     "IBLMesoscopeAnatomicalLocalizationInterface",
     "LickInterface",
     "PupilTrackingInterface",
+    "RawVideoInterface",
     "RoiMotionEnergyInterface",
     "WheelInterface",
 ]
