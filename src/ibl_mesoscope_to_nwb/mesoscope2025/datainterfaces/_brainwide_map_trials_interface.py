@@ -21,7 +21,7 @@ class BrainwideMapTrialsInterface(BaseDataInterface):
         Parameters
         ----------
         folder_path : DirectoryPath
-            Path to the folder containing the ROI motion energy data files.
+            Path to the folder containing the trial data files.
 
         """
 

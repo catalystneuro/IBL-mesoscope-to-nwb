@@ -25,7 +25,7 @@ class PupilTrackingInterface(BaseDataInterface):
         Parameters
         ----------
         folder_path : DirectoryPath
-            Path to the folder containing the ROI motion energy data files.
+            Path to the folder containing the pupil tracking data files.
         camera_name : str
             Name of the camera (e.g., 'camera_left', 'camera_right', 'camera_body').
 
