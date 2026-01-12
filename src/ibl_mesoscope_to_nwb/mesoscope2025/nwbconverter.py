@@ -49,29 +49,32 @@ class ProcessedMesoscopeNWBConverter(NWBConverter):
             Whether to print verbose output during conversion, by default True.
         """
         from .datainterfaces import (
+            BrainwideMapTrialsInterface,
+            IBLMesoscopeAnatomicalLocalizationInterface,
             IBLMesoscopeMotionCorrectedImagingInterface,
             IBLMesoscopeSegmentationInterface,
-            IBLMesoscopeAnatomicalLocalizationInterface,
+            LickInterface,
+            PupilTrackingInterface,
+            RoiMotionEnergyInterface,
+            WheelInterface,
         )
-
-        data_interface_name_mapping = {
-            "Segmentation": IBLMesoscopeSegmentationInterface,
-            "MotionCorrectedImaging": IBLMesoscopeMotionCorrectedImagingInterface,
-            "AnatomicalLocalization": IBLMesoscopeAnatomicalLocalizationInterface,
-        }
 
         for interface_name in source_data.keys():
             if "AnatomicalLocalization" in interface_name:
-                for key, interface_class in data_interface_name_mapping.items():
-                    if key in interface_name:
-                        self.data_interface_classes[interface_name] = interface_class
+                self.data_interface_classes[interface_name] = IBLMesoscopeAnatomicalLocalizationInterface
             if "Segmentation" in interface_name:
-                for key, interface_class in data_interface_name_mapping.items():
-                    if key in interface_name:
-                        self.data_interface_classes[interface_name] = interface_class
+                self.data_interface_classes[interface_name] = IBLMesoscopeSegmentationInterface
             if "MotionCorrected" in interface_name:
-                for key, interface_class in data_interface_name_mapping.items():
-                    if key in interface_name:
-                        self.data_interface_classes[interface_name] = interface_class
+                self.data_interface_classes[interface_name] = IBLMesoscopeMotionCorrectedImagingInterface
+            if "Lick" in interface_name:
+                self.data_interface_classes[interface_name] = LickInterface
+            if "Wheel" in interface_name:
+                self.data_interface_classes[interface_name] = WheelInterface
+            if "ROIMotionEnergy" in interface_name:
+                self.data_interface_classes[interface_name] = RoiMotionEnergyInterface
+            if "PupilTracking" in interface_name:
+                self.data_interface_classes[interface_name] = PupilTrackingInterface
+            if "Trials" in interface_name:
+                self.data_interface_classes[interface_name] = BrainwideMapTrialsInterface
 
         super().__init__(source_data=source_data, verbose=verbose)

@@ -1,0 +1,120 @@
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from hdmf.common import VectorData
+from neuroconv.basedatainterface import BaseDataInterface
+from neuroconv.utils import load_dict_from_file
+from pydantic import DirectoryPath
+from pynwb import NWBFile
+from pynwb.epoch import TimeIntervals
+
+
+class BrainwideMapTrialsInterface(BaseDataInterface):
+    """Interface for trial behavioral data."""
+
+    def __init__(
+        self,
+        folder_path: DirectoryPath,
+    ):
+        """Initialize the BrainwideMapTrialsInterface.
+        Parameters
+        ----------
+        folder_path : DirectoryPath
+            Path to the folder containing the trial data files.
+
+        """
+
+        self.folder_path = Path(folder_path)
+
+        super().__init__()
+        self.trials_file_name = "_ibl_trials.table.pqt"
+
+    def get_metadata(self) -> dict:
+        metadata = super().get_metadata()
+        trial_metadata = load_dict_from_file(file_path=Path(__file__).parent.parent / "metadata" / "trials.yml")
+        metadata.update(trial_metadata)
+        return metadata
+
+    def add_to_nwbfile(self, nwbfile: NWBFile, metadata: dict, stub_test: bool = False, stub_trials: int = 10):
+        """
+        Add trial data to NWBFile.
+
+        Parameters
+        ----------
+        nwbfile : NWBFile
+            The NWBFile to add data to.
+        metadata : dict
+            Metadata dictionary.
+        stub_test : bool, default: False
+            If True, only add the first stub_trials trials for testing.
+        stub_trials : int, default: 10
+            Number of trials to include when stub_test=True.
+        """
+        trials = pd.read_parquet(self.folder_path / self.trials_file_name)
+
+        # Subset trials if stub_test
+        if stub_test:
+            trials = trials.iloc[:stub_trials]
+
+        column_ordering = [
+            "choice",
+            "feedbackType",
+            "rewardVolume",
+            "contrastLeft",
+            "contrastRight",
+            "probabilityLeft",
+            "feedback_times",
+            "response_times",
+            "stimOff_times",  # not in the table
+            "stimOn_times",
+            "goCue_times",
+            "stimOffTrigger_times",  # not in the table
+            "stimOnTrigger_times",
+            "goCueTrigger_times",
+            "firstMovement_times",
+            "included",
+            "quiescencePeriod",
+        ]
+        columns = [
+            VectorData(
+                name="start_time",
+                description="The beginning of the trial.",
+                data=trials["intervals_0"].values,
+            ),
+            VectorData(
+                name="stop_time",
+                description="The end of the trial.",
+                data=trials["intervals_1"].values,
+            ),
+        ]
+        for ibl_key in column_ordering:
+            if ibl_key not in trials.columns:
+                file_path = self.folder_path / f"_ibl_trials.{ibl_key}.npy"
+                if not file_path.exists():
+                    Warning(f"Trial data for {ibl_key} not found in table or as .npy file.")
+                    continue
+                # Load the .npy file
+                np.load(file_path)
+                columns.append(
+                    VectorData(
+                        name=metadata["Trials"][ibl_key]["name"],
+                        description=metadata["Trials"][ibl_key]["description"],
+                        data=np.load(file_path, allow_pickle=True)[: len(trials)],
+                    )
+                )
+            else:
+                columns.append(
+                    VectorData(
+                        name=metadata["Trials"][ibl_key]["name"],
+                        description=metadata["Trials"][ibl_key]["description"],
+                        data=trials[ibl_key].values,
+                    )
+                )
+        nwbfile.add_time_intervals(
+            TimeIntervals(
+                name="trials",
+                description="Trial intervals and conditions.",
+                columns=columns,
+            )
+        )
