@@ -217,6 +217,22 @@ def raw_session_to_nwb(
     source_data = dict()
     conversion_options = dict()
 
+    # Add Raw Behavioral Video
+    camera_names = ["rightCamera", "leftCamera"]
+    for camera_name in camera_names:
+        source_data.update(
+            {
+                f"{camera_name}RawVideo": dict(
+                    folder_path=data_dir_path,
+                    nwbfiles_folder_path=output_dir_path,
+                    subject_id=subject_id,
+                    session=eid,
+                    camera_name=camera_name,
+                )
+            }
+        )
+        conversion_options.update({f"{camera_name}RawVideo": dict()})
+
     # Add raw imaging data
     raw_imaging_folder = data_dir_path / "raw_imaging_data_00"
     raw_imaging_metadata_path = raw_imaging_folder / "_ibl_rawImagingData.meta.json"

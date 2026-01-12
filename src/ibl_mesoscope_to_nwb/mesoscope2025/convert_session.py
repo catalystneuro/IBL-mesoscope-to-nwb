@@ -70,7 +70,7 @@ if __name__ == "__main__":
     eid = "5ce2e17e-8471-42d4-8a16-21949710b328"
     stub_test = True  # Set to True for a quick test conversion with limited data
     start_time = time.time()
-    mode = "processed"  # Choose between 'processed' and 'raw'
+    mode = "raw"  # Choose between 'processed' and 'raw'
     session_to_nwb(
         data_dir_path=data_dir_path,
         output_dir_path=output_dir_path / mode,

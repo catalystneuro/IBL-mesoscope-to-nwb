@@ -17,17 +17,13 @@ class RawMesoscopeNWBConverter(NWBConverter):
         verbose : bool, optional
             If True, print verbose output, by default True.
         """
-        from .datainterfaces import IBLMesoscopeRawImagingInterface
-
-        data_interface_name_mapping = {
-            "RawImaging": IBLMesoscopeRawImagingInterface,
-        }
+        from .datainterfaces import IBLMesoscopeRawImagingInterface, RawVideoInterface
 
         for interface_name in source_data.keys():
             if "RawImaging" in interface_name:
-                for key, interface_class in data_interface_name_mapping.items():
-                    if key in interface_name:
-                        self.data_interface_classes[interface_name] = interface_class
+                self.data_interface_classes[interface_name] = IBLMesoscopeRawImagingInterface
+            if "RawVideo" in interface_name:
+                self.data_interface_classes[interface_name] = RawVideoInterface
 
         super().__init__(source_data=source_data, verbose=verbose)
 
