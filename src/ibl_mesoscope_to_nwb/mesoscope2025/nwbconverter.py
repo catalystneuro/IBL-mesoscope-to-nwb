@@ -1,80 +1,65 @@
 """Primary NWBConverter class for this dataset."""
 
-from neuroconv import NWBConverter
+from datetime import datetime
+
+from neuroconv import BaseDataInterface, ConverterPipe
+from one.api import ONE
 
 
-class RawMesoscopeNWBConverter(NWBConverter):
-    """Primary conversion class for my extracellular electrophysiology dataset."""
+# class RawMesoscopeNWBConverter(NWBConverter):
+#     """Primary conversion class for my extracellular electrophysiology dataset."""
 
-    def __init__(self, source_data: dict, verbose: bool = True):
-        """
-        Initialize the RawMesoscopeNWBConverter.
+#     def __init__(self, source_data: dict, verbose: bool = True):
+#         """
+#         Initialize the RawMesoscopeNWBConverter.
 
-        Parameters
-        ----------
-        source_data : dict
-            Dictionary of source data for each data interface.
-        verbose : bool, optional
-            If True, print verbose output, by default True.
-        """
-        from .datainterfaces import IBLMesoscopeRawImagingInterface
+#         Parameters
+#         ----------
+#         source_data : dict
+#             Dictionary of source data for each data interface.
+#         verbose : bool, optional
+#             If True, print verbose output, by default True.
+#         """
+#         from .datainterfaces import IBLMesoscopeRawImagingInterface
 
-        data_interface_name_mapping = {
-            "RawImaging": IBLMesoscopeRawImagingInterface,
-        }
+#         data_interface_name_mapping = {
+#             "RawImaging": IBLMesoscopeRawImagingInterface,
+#         }
 
-        for interface_name in source_data.keys():
-            if "RawImaging" in interface_name:
-                for key, interface_class in data_interface_name_mapping.items():
-                    if key in interface_name:
-                        self.data_interface_classes[interface_name] = interface_class
+#         for interface_name in source_data.keys():
+#             if "RawImaging" in interface_name:
+#                 for key, interface_class in data_interface_name_mapping.items():
+#                     if key in interface_name:
+#                         self.data_interface_classes[interface_name] = interface_class
 
-        super().__init__(source_data=source_data, verbose=verbose)
+#         super().__init__(source_data=source_data, verbose=verbose)
 
 
-class ProcessedMesoscopeNWBConverter(NWBConverter):
+class ProcessedMesoscopeNWBConverter(ConverterPipe):
     """Primary conversion class for processed IBL mesoscope datasets."""
 
-    def __init__(self, source_data: dict, verbose: bool = True):
-        """
-        Initialize the ProcessedMesoscopeNWBConverter.
+    def __init__(
+        self,
+        one: ONE,
+        eid: str,
+        data_interfaces: list[BaseDataInterface] | dict[str, BaseDataInterface],
+        verbose=False,
+    ):
+        self.one = one
+        self.eid = eid
+        super().__init__(data_interfaces=data_interfaces, verbose=verbose)
 
-        Parameters
-        ----------
-        source_data : dict
-            Dictionary mapping data interface names to their source data configurations.
-            Keys should contain either 'Segmentation' or 'MotionCorrected' to be
-            automatically mapped to the appropriate data interface class.
-        verbose : bool, optional
-            Whether to print verbose output during conversion, by default True.
-        """
-        from .datainterfaces import (
-            BrainwideMapTrialsInterface,
-            IBLMesoscopeAnatomicalLocalizationInterface,
-            IBLMesoscopeMotionCorrectedImagingInterface,
-            IBLMesoscopeSegmentationInterface,
-            LickInterface,
-            PupilTrackingInterface,
-            RoiMotionEnergyInterface,
-            WheelInterface,
-        )
+    def get_metadata(self):
+        metadata = super().get_metadata()
 
-        for interface_name in source_data.keys():
-            if "AnatomicalLocalization" in interface_name:
-                self.data_interface_classes[interface_name] = IBLMesoscopeAnatomicalLocalizationInterface
-            if "Segmentation" in interface_name:
-                self.data_interface_classes[interface_name] = IBLMesoscopeSegmentationInterface
-            if "MotionCorrected" in interface_name:
-                self.data_interface_classes[interface_name] = IBLMesoscopeMotionCorrectedImagingInterface
-            if "Lick" in interface_name:
-                self.data_interface_classes[interface_name] = LickInterface
-            if "Wheel" in interface_name:
-                self.data_interface_classes[interface_name] = WheelInterface
-            if "ROIMotionEnergy" in interface_name:
-                self.data_interface_classes[interface_name] = RoiMotionEnergyInterface
-            if "PupilTracking" in interface_name:
-                self.data_interface_classes[interface_name] = PupilTrackingInterface
-            if "Trials" in interface_name:
-                self.data_interface_classes[interface_name] = BrainwideMapTrialsInterface
+        try:
+            ((session_metadata),) = self.one.alyx.rest(url="sessions", action="list", id=self.eid)
+        except Exception as e:
+            raise RuntimeError(f"Failed to access ONE for eid {self.eid}: {e}")
 
-        super().__init__(source_data=source_data, verbose=verbose)
+        session_start_time = datetime.fromisoformat(session_metadata["start_time"])
+        metadata["NWBFile"]["session_start_time"] = session_start_time
+        metadata["NWBFile"]["session_id"] = self.eid
+        metadata["Subject"]["subject_id"] = session_metadata["subject"]
+
+        return metadata

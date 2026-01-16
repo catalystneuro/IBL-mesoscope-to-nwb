@@ -2,7 +2,13 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
-from ndx_anatomical_localization import AnatomicalCoordinatesImage, AnatomicalCoordinatesTable, Localization, Space
+from ndx_anatomical_localization import (
+    AnatomicalCoordinatesImage,
+    AnatomicalCoordinatesTable,
+    Localization,
+    Space,
+    AllenCCFv3Space,
+)
 from neuroconv.basedatainterface import BaseDataInterface
 from pydantic import DirectoryPath
 from pynwb import NWBFile
@@ -228,18 +234,26 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
             nwbfile.add_lab_meta_data(localization)
 
         # Create coordinate space objects
-        if "space" not in localization.spaces:
-            self.ccf_space = Space.get_predefined_space("CCFv3")
+        self.ccf_space = AllenCCFv3Space(name="AllenCCFv3")
+
+        self.ibl_space = Space(
+            name="IBLBregma",
+            space_name="IBLBregma",
+            origin="bregma",
+            units="um",
+            orientation="RAS",
+        )
+        if self.ibl_space.name not in localization.spaces:
+            localization.add_spaces(spaces=[self.ibl_space])
+        if self.ccf_space.name not in localization.spaces:
             localization.add_spaces(spaces=[self.ccf_space])
-        else:
-            self.ccf_space = localization.spaces["space"]
 
         # Create AnatomicalCoordinatesTable for CCF coordinates
         ccf_table = AnatomicalCoordinatesTable(
             name=f"ROIsCCFv3AnatomicalCoordinates{camel_case_FOV_name}",
             description=f"ROI centroid estimated coordinates in the CCF coordinate system for {self.FOV_name}.",
             target=plane_segmentation,
-            space=self.ccf_space,
+            space=self.ccf_space,  # TODO: Verify this is correct
             method="TODO: Add method description",
         )
         ccf_table.add_column(
@@ -263,20 +277,24 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
 
         # Add tables to localization
         localization.add_anatomical_coordinates_tables([ccf_table])
+
+        # TODO: Investigate error: TypeError: AnatomicalCoordinatesImage.__init__: incorrect type for 'space' (got 'AllenCCFv3Space', expected 'Space')
         # Get mean image anatomical localization data
-        mean_image_ccf_mlapdv = self.get_mean_image_anatomical_localization()
-        mean_image_ccf_regions = self.get_mean_image_brain_location_id()
+        # mean_image_ccf_mlapdv = self.get_mean_image_anatomical_localization()
+        # mean_image_ccf_regions = self.get_mean_image_brain_location_id()
 
-        ccf_image = AnatomicalCoordinatesImage(
-            name=f"MeanImageCCFv3AnatomicalCoordinates{camel_case_FOV_name}",
-            description=f"Mean image estimated coordinates in the CCF coordinate system for {self.FOV_name}.",
-            space=self.ccf_space,
-            method="TODO: Add method description",
-            image=mean_image,
-            x=mean_image_ccf_mlapdv[:, :, 0],
-            y=mean_image_ccf_mlapdv[:, :, 1],
-            z=mean_image_ccf_mlapdv[:, :, 2],
-            brain_region_id=mean_image_ccf_regions,
-        )
+        # ccf_image = AnatomicalCoordinatesImage(
+        #     name=f"MeanImageCCFv3AnatomicalCoordinates{camel_case_FOV_name}",
+        #     description=f"Mean image estimated coordinates in the CCF coordinate system for {self.FOV_name}.",
+        #     space=self.ccf_space,
+        #     method="TODO: Add method description",
+        #     image=mean_image,
+        #     x=mean_image_ccf_mlapdv[:, :, 0],
+        #     y=mean_image_ccf_mlapdv[:, :, 1],
+        #     z=mean_image_ccf_mlapdv[:, :, 2],
+        #     brain_region_id=mean_image_ccf_regions,
+        # )
 
-        localization.add_anatomical_coordinates_images([ccf_image])
+        # localization.add_anatomical_coordinates_images([ccf_image])
+
+        # TODO: Add IBL-Bregma anatomical localization (check if the data are actually in Allen CCFv3 or IBL-Bregma)

@@ -19,6 +19,10 @@ class IBLMesoscopeSegmentationInterface(BaseSegmentationExtractorInterface):
     info = "Interface for IBLMesoscope segmentation."
 
     @classmethod
+    def get_extractor_class(cls):
+        return IBLMesoscopeSegmentationExtractor
+
+    @classmethod
     def get_source_schema(cls) -> dict:
         """
         Get the source schema for the IBLMesoscope segmentation interface.

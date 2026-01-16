@@ -20,7 +20,9 @@ class IBLMesoscopeMotionCorrectedImagingInterface(BaseImagingExtractorInterface)
     associated_suffixes = (".bin", ".npy")
     info = "Interface for IBL Motion Corrected Mesoscope imaging data."
 
-    Extractor = IBLMesoscopeMotionCorrectedImagingExtractor
+    @classmethod
+    def get_extractor_class(cls):
+        return IBLMesoscopeMotionCorrectedImagingExtractor
 
     def __init__(
         self,

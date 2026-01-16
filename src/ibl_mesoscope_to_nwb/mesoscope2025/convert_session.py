@@ -41,7 +41,7 @@ def session_to_nwb(
     """
     match mode:
         case "processed":
-            processed_session_to_nwb(
+            return processed_session_to_nwb(
                 data_dir_path=data_dir_path,
                 output_dir_path=output_dir_path,
                 subject_id=subject_id,
