@@ -1,10 +1,7 @@
-"""Primary NWBConverter class for this dataset."""
+from pathlib import Path
 
-from datetime import datetime
-
-from neuroconv import BaseDataInterface, ConverterPipe
-from one.api import ONE
-
+from ibl_to_nwb.converters._iblconverter import IblConverter
+from neuroconv.utils import dict_deep_update, load_dict_from_file
 
 # class RawMesoscopeNWBConverter(NWBConverter):
 #     """Primary conversion class for my extracellular electrophysiology dataset."""
@@ -35,31 +32,14 @@ from one.api import ONE
 #         super().__init__(source_data=source_data, verbose=verbose)
 
 
-class ProcessedMesoscopeNWBConverter(ConverterPipe):
+class ProcessedMesoscopeNWBConverter(IblConverter):
     """Primary conversion class for processed IBL mesoscope datasets."""
 
-    def __init__(
-        self,
-        one: ONE,
-        eid: str,
-        data_interfaces: list[BaseDataInterface] | dict[str, BaseDataInterface],
-        verbose=False,
-    ):
-        self.one = one
-        self.eid = eid
-        super().__init__(data_interfaces=data_interfaces, verbose=verbose)
-
-    def get_metadata(self):
+    def get_metadata(self) -> dict:
         metadata = super().get_metadata()
 
-        try:
-            ((session_metadata),) = self.one.alyx.rest(url="sessions", action="list", id=self.eid)
-        except Exception as e:
-            raise RuntimeError(f"Failed to access ONE for eid {self.eid}: {e}")
-
-        session_start_time = datetime.fromisoformat(session_metadata["start_time"])
-        metadata["NWBFile"]["session_start_time"] = session_start_time
-        metadata["NWBFile"]["session_id"] = self.eid
-        metadata["Subject"]["subject_id"] = session_metadata["subject"]
+        mesoscope_metadata_file_path = Path(__file__).parent.parent / "_metadata" / "mesoscope_general_metadata.yml"
+        experiment_metadata = load_dict_from_file(file_path=mesoscope_metadata_file_path)
+        metadata = dict_deep_update(metadata, experiment_metadata)
 
         return metadata
