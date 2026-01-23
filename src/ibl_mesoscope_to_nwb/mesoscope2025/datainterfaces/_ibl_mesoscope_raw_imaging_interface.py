@@ -114,49 +114,35 @@ class IBLMesoscopeRawImagingInterface(BaseImagingExtractorInterface):
 
         # Get global imaging rate
         imaging_rate = raw_metadata["scanImageParams"]["hRoiManager"]["scanFrameRate"]
+        scan_line_rate = raw_metadata["scanImageParams"]["hRoiManager"]["linePeriod"] ** -1
 
         # Get device information (assumed single device)
         device_metadata = ophys_metadata["Ophys"]["Device"][0]
 
         # Extract FOV-specific metadata
         fov_uuid = fov["roiUUID"]
-        center_mlapdv = fov["MLAPDV"]["center"]  # [ML, AP, DV] in micrometers
-        brain_region_id = fov["brainLocationIds"]["center"]
+        if "brainLocationIds" not in fov:
+            brain_region_id = None
+        else:
+            brain_region_id = fov["brainLocationIds"]["center"]
         dimensions = fov["nXnYnZ"]  # [width, height, depth] in pixels
 
-        # Calculate origin_coords from top-left corner (convert from micrometers to meters)
-        top_left = fov["MLAPDV"]["topLeft"]
-        origin_coords = [
-            top_left[0] * 1e-6,  # ML in meters
-            top_left[1] * 1e-6,  # AP in meters
-            top_left[2] * 1e-6,  # DV in meters
-        ]
+        x_pixel_size = raw_metadata["rawScanImageMeta"]["XResolution"]  # in micrometers
+        y_pixel_size = raw_metadata["rawScanImageMeta"]["YResolution"]  # in micrometers
 
-        # Calculate grid_spacing (pixel size in meters)
-        top_right = np.array(fov["MLAPDV"]["topRight"])
-        bottom_left = np.array(fov["MLAPDV"]["bottomLeft"])
-        top_left_array = np.array(top_left)
-
-        width_um = np.linalg.norm(top_right - top_left_array)
-        height_um = np.linalg.norm(bottom_left - top_left_array)
-
-        pixel_size_x = width_um / dimensions[0]  # μm/pixel
-        pixel_size_y = height_um / dimensions[1]  # μm/pixel
-
-        grid_spacing = [pixel_size_x * 1e-6, pixel_size_y * 1e-6]  # x spacing in meters  # y spacing in meters
+        grid_spacing = [x_pixel_size * 1e-6, y_pixel_size * 1e-6]  # x spacing in meters  # y spacing in meters
 
         # Create ImagingPlane entry for this FOV
         imaging_plane = imaging_plane_template.copy()
         imaging_plane["name"] = f"ImagingPlane{two_photon_series_suffix}"
         imaging_plane["description"] = (
             f"Field of view {self.FOV_index} (UUID: {fov_uuid}). "
-            f"Center location: ML={center_mlapdv[0]:.1f}um, "
-            f"AP={center_mlapdv[1]:.1f}um, DV={center_mlapdv[2]:.1f}um. "
             f"Image dimensions: {dimensions[0]}x{dimensions[1]} pixels."
         )
         imaging_plane["imaging_rate"] = imaging_rate
-        imaging_plane["location"] = f"Brain region ID {brain_region_id} (Allen CCF 2017)"
-        imaging_plane["origin_coords"] = origin_coords
+        imaging_plane["location"] = (
+            f"Brain region ID {brain_region_id} (Allen CCF 2017)" if brain_region_id is not None else "Unknown"
+        )
         imaging_plane["grid_spacing"] = grid_spacing
         imaging_plane["device"] = device_metadata["name"]
 
@@ -167,6 +153,7 @@ class IBLMesoscopeRawImagingInterface(BaseImagingExtractorInterface):
             f"The raw two-photon imaging data acquired using the mesoscope on {self.FOV_name} (UUID: {fov_uuid}) ."
         )
         two_photon_series["imaging_plane"] = f"ImagingPlane{two_photon_series_suffix}"
+        two_photon_series["scan_line_rate"] = scan_line_rate
 
         metadata_copy["Ophys"]["Device"][0] = device_metadata
         metadata_copy["Ophys"]["ImagingPlane"][0] = dict_deep_update(
