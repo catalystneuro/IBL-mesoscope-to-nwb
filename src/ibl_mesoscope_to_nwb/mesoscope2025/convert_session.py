@@ -4,60 +4,62 @@ import time
 from pathlib import Path
 from typing import Literal, Union
 
+from one.api import ONE
+
 from ibl_mesoscope_to_nwb.mesoscope2025.conversion import (
-    processed_session_to_nwb,
-    raw_session_to_nwb,
+    convert_processed_session,
+    # raw_session_to_nwb,
 )
 
 
 def session_to_nwb(
-    data_dir_path: Union[str, Path],
-    output_dir_path: Union[str, Path],
-    subject_id: str,
+    base_path: Path,
     eid: str,
     mode: Literal["processed", "raw"],
     stub_test: bool = False,
-    overwrite: bool = False,
+    append_on_disk_nwbfile: bool = False,
+    verbose: bool = False,
 ):
     """
     Convert a single session to NWB format.
 
     Parameters
     ----------
-    data_dir_path : Union[str, Path]
-        Path to the directory containing the session data.
-    output_dir_path : Union[str, Path]
-        Path to the directory where the NWB file will be saved.
-    subject_id : str
-        The subject ID for the session.
+    base_path : Path
+        Base path to the directory containing the session data.
+    eid : str
+        The experiment ID (session ID) for the session.
     eid : str
         The experiment ID (session ID) for the session.
     mode : Literal["processed", "raw"]
         The conversion mode to use.
     stub_test : bool, optional
         Whether to run a stub test with limited data, by default False.
-    overwrite : bool, optional
-        Whether to overwrite existing NWB files, by default False.
+    append_on_disk_nwbfile : bool, optional
+        Whether to append data to an existing on-disk NWB file, by default False.
+    verbose : bool, optional
+        Whether to print detailed conversion information, by default False.
     """
     match mode:
         case "processed":
-            return processed_session_to_nwb(
-                data_dir_path=data_dir_path,
-                output_dir_path=output_dir_path,
-                subject_id=subject_id,
+            return convert_processed_session(
                 eid=eid,
+                one=ONE(),  # base_url="https://alyx.internationalbrainlab.org"
                 stub_test=stub_test,
-                overwrite=overwrite,
+                base_path=base_path,
+                append_on_disk_nwbfile=append_on_disk_nwbfile,
+                verbose=verbose,
             )
-        case "raw":
-            return raw_session_to_nwb(
-                data_dir_path=data_dir_path,
-                output_dir_path=output_dir_path,
-                subject_id=subject_id,
-                eid=eid,
-                stub_test=stub_test,
-                overwrite=overwrite,
-            )
+
+        # case "raw":
+        #     return raw_session_to_nwb(
+        #         data_dir_path=data_dir_path,
+        #         output_dir_path=output_dir_path,
+        #         subject_id=subject_id,
+        #         eid=eid,
+        #         stub_test=stub_test,
+        #         overwrite=overwrite,
+        #     )
         case _:
             raise ValueError(f"Mode {mode} not recognized. Available modes: 'processed', 'raw'.")
 
@@ -72,12 +74,11 @@ if __name__ == "__main__":
     start_time = time.time()
     mode = "processed"  # Choose between 'processed' and 'raw'
     session_to_nwb(
-        data_dir_path=data_dir_path,
-        output_dir_path=output_dir_path / mode,
-        subject_id="SP061",
+        base_path=Path("E:/IBL-data-share"),
         eid=eid,
         mode=mode,
         stub_test=stub_test,
-        overwrite=True,
+        append_on_disk_nwbfile=False,
+        verbose=True,
     )
     print(f"Conversion completed in {time.time() - start_time:.2f} seconds.")
