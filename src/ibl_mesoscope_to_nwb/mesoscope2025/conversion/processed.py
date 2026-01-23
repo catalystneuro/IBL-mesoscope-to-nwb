@@ -16,9 +16,6 @@ from ibl_to_nwb.datainterfaces import (
     PupilTrackingInterface,
     RoiMotionEnergyInterface,
     SessionEpochsInterface,
-    WheelKinematicsInterface,
-    WheelMovementsInterface,
-    WheelPositionInterface,
 )
 from ndx_ibl import IblMetadata, IblSubject
 from neuroconv.utils import dict_deep_update, load_dict_from_file
@@ -32,6 +29,9 @@ from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
     IBLMesoscopeMotionCorrectedImagingInterface,
     IBLMesoscopeSegmentationExtractor,
     IBLMesoscopeSegmentationInterface,
+    MesoscopeWheelKinematicsInterface,
+    MesoscopeWheelMovementsInterface,
+    MesoscopeWheelPositionInterface,
 )
 from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
     sanitize_subject_id_for_dandi,
@@ -331,6 +331,7 @@ def convert_processed_session(
     # ========================================================================
     # STEP 1: Define data interfaces
     # ========================================================================
+
     if verbose:
         print(f"Creating data interfaces...")
     interface_creation_start = time.time()
@@ -371,9 +372,27 @@ def convert_processed_session(
 
     # Behavioral data
     data_interfaces["BrainwideMapTrials"] = BrainwideMapTrialsInterface(**interface_kwargs)
-    data_interfaces["WheelPosition"] = WheelPositionInterface(**interface_kwargs)
-    data_interfaces["WheelMovements"] = WheelMovementsInterface(**interface_kwargs)
-    data_interfaces["WheelKinematics"] = WheelKinematicsInterface(**interface_kwargs)
+
+    # Wheel data - add each interface if its data is available
+    from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces.ibl_mesoscope_wheel_interfaces import _get_available_tasks
+
+    available_tasks = _get_available_tasks(**interface_kwargs)
+    for task in available_tasks:
+        if MesoscopeWheelPositionInterface.check_availability(one, eid, task=task)["available"]:
+            data_interfaces[f"{task.replace('task_', 'Task')}WheelPosition"] = MesoscopeWheelPositionInterface(
+                **interface_kwargs, task=task
+            )
+            conversion_options.update({f"{task.replace('task_', 'Task')}WheelPosition": dict(stub_test=stub_test)})
+        if MesoscopeWheelKinematicsInterface.check_availability(one, eid, task=task)["available"]:
+            data_interfaces[f"{task.replace('task_', 'Task')}WheelKinematics"] = MesoscopeWheelKinematicsInterface(
+                **interface_kwargs, task=task
+            )
+            conversion_options.update({f"{task.replace('task_', 'Task')}WheelKinematics": dict(stub_test=stub_test)})
+        if MesoscopeWheelMovementsInterface.check_availability(one, eid, task=task)["available"]:
+            data_interfaces[f"{task.replace('task_', 'Task')}WheelMovements"] = MesoscopeWheelMovementsInterface(
+                **interface_kwargs, task=task
+            )
+            conversion_options.update({f"{task.replace('task_', 'Task')}WheelMovements": dict(stub_test=stub_test)})
 
     # Session epochs (high-level task vs passive phases)
     if SessionEpochsInterface.check_availability(one, eid)["available"]:
@@ -460,6 +479,7 @@ def convert_processed_session(
     subject_metadata_for_ndx = metadata.pop("Subject")
     ibl_subject = IblSubject(**subject_metadata_for_ndx)
 
+    # TODO: Solve this for append_on_disk_nwbfile=True case
     nwbfile = NWBFile(**metadata["NWBFile"])
     nwbfile.subject = ibl_subject
 

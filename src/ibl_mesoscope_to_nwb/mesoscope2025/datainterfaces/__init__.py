@@ -1,4 +1,3 @@
-from ._brainwide_map_trials_interface import BrainwideMapTrialsInterface
 from ._ibl_mesoscope_anatomical_localization_interface import (
     IBLMesoscopeAnatomicalLocalizationInterface,
 )
@@ -12,13 +11,13 @@ from ._ibl_mesoscope_raw_imaging_extractor import IBLMesoscopeRawImagingExtracto
 from ._ibl_mesoscope_raw_imaging_interface import IBLMesoscopeRawImagingInterface
 from ._ibl_mesoscope_segmentation_extractor import IBLMesoscopeSegmentationExtractor
 from ._ibl_mesoscope_segmentation_interface import IBLMesoscopeSegmentationInterface
-from ._lick_times_interface import LickInterface
-from ._pupil_tracking_interface import PupilTrackingInterface
-from ._roi_motion_energy_interface import RoiMotionEnergyInterface
-from ._wheel_movement_interface import WheelInterface
+from .ibl_mesoscope_wheel_interfaces import (
+    MesoscopeWheelKinematicsInterface,
+    MesoscopeWheelMovementsInterface,
+    MesoscopeWheelPositionInterface,
+)
 
 __all__ = [
-    "BrainwideMapTrialsInterface",
     "IBLMesoscopeRawImagingInterface",
     "IBLMesoscopeRawImagingExtractor",
     "IBLMesoscopeSegmentationExtractor",
@@ -26,8 +25,7 @@ __all__ = [
     "IBLMesoscopeMotionCorrectedImagingExtractor",
     "IBLMesoscopeMotionCorrectedImagingInterface",
     "IBLMesoscopeAnatomicalLocalizationInterface",
-    "LickInterface",
-    "PupilTrackingInterface",
-    "RoiMotionEnergyInterface",
-    "WheelInterface",
+    "MesoscopeWheelKinematicsInterface",
+    "MesoscopeWheelMovementsInterface",
+    "MesoscopeWheelPositionInterface",
 ]
