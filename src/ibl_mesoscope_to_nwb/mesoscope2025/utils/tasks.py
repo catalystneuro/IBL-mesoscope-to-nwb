@@ -6,6 +6,6 @@ def get_available_tasks(one: ONE, session: str) -> list[str]:
 
     collections = one.list_collections(
         eid=session,
-        filename="*wheel*",
+        filename="*alf/task*",
     )
     return [collection.split("/")[1] for collection in collections]
