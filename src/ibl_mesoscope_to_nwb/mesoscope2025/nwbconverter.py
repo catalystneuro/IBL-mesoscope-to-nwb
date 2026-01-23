@@ -2,12 +2,10 @@ from datetime import datetime
 from pathlib import Path
 
 from dateutil import tz
-from ndx_ibl import IblMetadata, IblSubject
 from neuroconv import ConverterPipe
 from neuroconv.basedatainterface import BaseDataInterface
 from neuroconv.utils import dict_deep_update, load_dict_from_file
 from one.api import ONE
-from pynwb import NWBFile
 from typing_extensions import Self
 
 from ibl_mesoscope_to_nwb.mesoscope2025.utils import get_ibl_subject_metadata
@@ -60,33 +58,17 @@ class IblConverter(ConverterPipe):
         return metadata
 
 
-# class RawMesoscopeNWBConverter(NWBConverter):
-#     """Primary conversion class for my extracellular electrophysiology dataset."""
+class RawMesoscopeNWBConverter(IblConverter):
+    """Primary conversion class for raw IBL mesoscope datasets."""
 
-#     def __init__(self, source_data: dict, verbose: bool = True):
-#         """
-#         Initialize the RawMesoscopeNWBConverter.
+    def get_metadata(self) -> dict:
+        metadata = super().get_metadata()
 
-#         Parameters
-#         ----------
-#         source_data : dict
-#             Dictionary of source data for each data interface.
-#         verbose : bool, optional
-#             If True, print verbose output, by default True.
-#         """
-#         from .datainterfaces import IBLMesoscopeRawImagingInterface
+        mesoscope_metadata_file_path = Path(__file__).parent / "_metadata" / "mesoscope_general_metadata.yaml"
+        experiment_metadata = load_dict_from_file(file_path=mesoscope_metadata_file_path)
+        metadata = dict_deep_update(metadata, experiment_metadata)
 
-#         data_interface_name_mapping = {
-#             "RawImaging": IBLMesoscopeRawImagingInterface,
-#         }
-
-#         for interface_name in source_data.keys():
-#             if "RawImaging" in interface_name:
-#                 for key, interface_class in data_interface_name_mapping.items():
-#                     if key in interface_name:
-#                         self.data_interface_classes[interface_name] = interface_class
-
-#         super().__init__(source_data=source_data, verbose=verbose)
+        return metadata
 
 
 class ProcessedMesoscopeNWBConverter(IblConverter):
