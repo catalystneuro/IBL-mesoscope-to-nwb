@@ -363,11 +363,11 @@ def convert_processed_session(
         conversion_options.update({f"{FOV_name}Segmentation": dict(stub_test=False)})
 
     # Add Anatomical Localization
-    # for FOV_name in FOV_names:
-    #     data_interfaces[f"{FOV_name}AnatomicalLocalization"] = IBLMesoscopeAnatomicalLocalizationInterface(
-    #         folder_path=alf_folder, FOV_name=FOV_name
-    #     )
-    #     conversion_options.update({f"{FOV_name}AnatomicalLocalization": dict()})
+    for FOV_name in FOV_names:
+        data_interfaces[f"{FOV_name}AnatomicalLocalization"] = IBLMesoscopeAnatomicalLocalizationInterface(
+            folder_path=alf_folder, FOV_name=FOV_name
+        )
+        conversion_options.update({f"{FOV_name}AnatomicalLocalization": dict()})
 
     # Behavioral data
     data_interfaces["BrainwideMapTrials"] = BrainwideMapTrialsInterface(**interface_kwargs)
