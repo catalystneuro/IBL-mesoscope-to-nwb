@@ -108,6 +108,7 @@ class IBLMesoscopeRawImagingInterface(BaseImagingExtractorInterface):
             fov = raw_metadata["FOV"][self.FOV_index]
 
         two_photon_series_suffix = self.FOV_name.replace("_", "") + self.task
+        imaging_plane_suffix = self.FOV_name.replace("_", "")
         # Get the template structures (single entries from YAML)
         imaging_plane_template = ophys_metadata["Ophys"]["ImagingPlane"][0]
         two_photon_series_template = ophys_metadata["Ophys"]["TwoPhotonSeries"][0]
@@ -121,10 +122,7 @@ class IBLMesoscopeRawImagingInterface(BaseImagingExtractorInterface):
 
         # Extract FOV-specific metadata
         fov_uuid = fov["roiUUID"]
-        if "brainLocationIds" not in fov:
-            brain_region_id = None
-        else:
-            brain_region_id = fov["brainLocationIds"]["center"]
+
         dimensions = fov["nXnYnZ"]  # [width, height, depth] in pixels
 
         x_pixel_size = raw_metadata["rawScanImageMeta"]["XResolution"]  # in micrometers
@@ -134,15 +132,17 @@ class IBLMesoscopeRawImagingInterface(BaseImagingExtractorInterface):
 
         # Create ImagingPlane entry for this FOV
         imaging_plane = imaging_plane_template.copy()
-        imaging_plane["name"] = f"ImagingPlane{two_photon_series_suffix}"
+        imaging_plane["name"] = f"ImagingPlane{imaging_plane_suffix}"
         imaging_plane["description"] = (
             f"Field of view {self.FOV_index} (UUID: {fov_uuid}). "
             f"Image dimensions: {dimensions[0]}x{dimensions[1]} pixels."
         )
         imaging_plane["imaging_rate"] = imaging_rate
-        imaging_plane["location"] = (
-            f"Brain region ID {brain_region_id} (Allen CCF 2017)" if brain_region_id is not None else "Unknown"
-        )
+        if "brainLocationIds" in fov:
+            brain_region_id = fov["brainLocationIds"]["center"]
+            imaging_plane["location"] = (
+                f"Brain region ID {brain_region_id} (Allen CCF 2017)" if brain_region_id is not None else "Unknown"
+            )
         imaging_plane["grid_spacing"] = grid_spacing
         imaging_plane["device"] = device_metadata["name"]
 
@@ -152,7 +152,7 @@ class IBLMesoscopeRawImagingInterface(BaseImagingExtractorInterface):
         two_photon_series["description"] = (
             f"The raw two-photon imaging data acquired using the mesoscope on {self.FOV_name} (UUID: {fov_uuid}) ."
         )
-        two_photon_series["imaging_plane"] = f"ImagingPlane{two_photon_series_suffix}"
+        two_photon_series["imaging_plane"] = f"ImagingPlane{imaging_plane_suffix}"
         two_photon_series["scan_line_rate"] = scan_line_rate
 
         metadata_copy["Ophys"]["Device"][0] = device_metadata
@@ -162,7 +162,6 @@ class IBLMesoscopeRawImagingInterface(BaseImagingExtractorInterface):
         metadata_copy["Ophys"]["TwoPhotonSeries"][0] = dict_deep_update(
             metadata_copy["Ophys"]["TwoPhotonSeries"][0], two_photon_series
         )
-
         return metadata_copy
 
     def add_to_nwbfile(

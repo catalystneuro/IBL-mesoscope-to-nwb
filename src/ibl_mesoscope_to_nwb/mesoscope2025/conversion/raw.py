@@ -88,18 +88,16 @@ def convert_raw_session(
         eid=eid,
         filename="*raw_imaging_data*",
     )
-
+    photon_series_index = 0
     for raw_imaging_collection in raw_imaging_collections:
         if "reference" in raw_imaging_collection:
             continue  # Skip reference imaging data
         task = "Task" + raw_imaging_collection.split("raw_imaging_data_")[-1]
-        if "01" in task:
-            continue
         raw_imaging_folder = Path(paths["session_folder"]) / raw_imaging_collection / "imaging.frames"
         raw_imaging_metadata_path = (
             Path(paths["session_folder"]) / raw_imaging_collection / "_ibl_rawImagingData.meta.json"
         )
-        # TODO add function to get FOV number
+        # TODO add function to get number of FOVs
         with open(raw_imaging_metadata_path, "r") as f:
             raw_metadata = json.load(f)
             num_planes = 2 if stub_test else len(raw_metadata["FOV"])
@@ -111,8 +109,9 @@ def convert_raw_session(
                 file_paths=tiff_files, plane_index=FOV_index, channel_name="Channel 1", FOV_name=FOV_name, task=task
             )
             conversion_options.update(
-                {f"{task}{FOV_name}RawImaging": dict(stub_test=stub_test, photon_series_index=FOV_index)}
+                {f"{task}{FOV_name}RawImaging": dict(stub_test=stub_test, photon_series_index=photon_series_index)}
             )
+            photon_series_index += 1
 
     # Add raw behavioral video
     # Raw video interfaces
@@ -148,28 +147,28 @@ def convert_raw_session(
             continue
 
         # In stub mode, check if video is already in cache (avoid triggering downloads)
-        # if stub_test:
-        #     # Check cache without downloading - construct expected path from eid2path
-        #     session_path = one.eid2path(eid)
-        #     if session_path is None:
-        #         # Session path not in cache, skip video
-        #         if verbose:
-        #             print(f"✗ Stub mode: {camera_view}Camera video not in cache - skipping to avoid download")
-        #         continue
+        if stub_test:
+            # Check cache without downloading - construct expected path from eid2path
+            session_path = one.eid2path(eid)
+            if session_path is None:
+                # Session path not in cache, skip video
+                if verbose:
+                    print(f"✗ Stub mode: {camera_view}Camera video not in cache - skipping to avoid download")
+                continue
 
-        #     expected_video_path = session_path / video_filename
-        #     video_in_cache = expected_video_path.exists()
+            expected_video_path = session_path / video_filename
+            video_in_cache = expected_video_path.exists()
 
-        #     if not video_in_cache:
-        #         if verbose:
-        #             print(f"✗ Stub mode: {camera_view}Camera video not in cache - skipping to avoid download")
-        #         continue
+            if not video_in_cache:
+                if verbose:
+                    print(f"✗ Stub mode: {camera_view}Camera video not in cache - skipping to avoid download")
+                continue
 
-        #     if verbose:
-        #         print(f"✓ Stub mode: Including {camera_view}Camera video (already in cache)")
-        # else:
-        #     if verbose:
-        #         print(f"Adding {camera_view}Camera video interface")
+            if verbose:
+                print(f"✓ Stub mode: Including {camera_view}Camera video (already in cache)")
+        else:
+            if verbose:
+                print(f"Adding {camera_view}Camera video interface")
 
         # Add video interface
         data_interfaces[f"{camera_name}RawVideoInterface"] = RawVideoInterface(
