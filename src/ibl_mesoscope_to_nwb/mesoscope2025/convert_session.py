@@ -2,13 +2,13 @@
 
 import time
 from pathlib import Path
-from typing import Literal, Union
+from typing import Literal
 
 from one.api import ONE
 
 from ibl_mesoscope_to_nwb.mesoscope2025.conversion import (
     convert_processed_session,
-    # raw_session_to_nwb,
+    convert_raw_session,
 )
 
 
@@ -27,8 +27,6 @@ def session_to_nwb(
     ----------
     base_path : Path
         Base path to the directory containing the session data.
-    eid : str
-        The experiment ID (session ID) for the session.
     eid : str
         The experiment ID (session ID) for the session.
     mode : Literal["processed", "raw"]
@@ -51,15 +49,15 @@ def session_to_nwb(
                 verbose=verbose,
             )
 
-        # case "raw":
-        #     return raw_session_to_nwb(
-        #         data_dir_path=data_dir_path,
-        #         output_dir_path=output_dir_path,
-        #         subject_id=subject_id,
-        #         eid=eid,
-        #         stub_test=stub_test,
-        #         overwrite=overwrite,
-        #     )
+        case "raw":
+            return convert_raw_session(
+                eid=eid,
+                one=ONE(),  # base_url="https://alyx.internationalbrainlab.org"
+                stub_test=stub_test,
+                base_path=base_path,
+                append_on_disk_nwbfile=append_on_disk_nwbfile,
+                verbose=verbose,
+            )
         case _:
             raise ValueError(f"Mode {mode} not recognized. Available modes: 'processed', 'raw'.")
 
