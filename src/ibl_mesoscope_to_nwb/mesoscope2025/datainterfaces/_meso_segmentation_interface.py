@@ -1,43 +1,43 @@
 from copy import deepcopy
 
+from ibl_to_nwb.datainterfaces._base_ibl_interface import BaseIBLDataInterface
 from neuroconv.datainterfaces.ophys.basesegmentationextractorinterface import (
     BaseSegmentationExtractorInterface,
 )
 from neuroconv.utils import DeepDict
 from pydantic import DirectoryPath, validate_call
 from pynwb import NWBFile
-from ibl_to_nwb.datainterfaces._base_ibl_interface import BaseIBLDataInterface
 
-from ._ibl_mesoscope_segmentation_extractor import IBLMesoscopeSegmentationExtractor
+from ._meso_segmentation_extractor import MesoscopeSegmentationExtractor
 
 
-class IBLMesoscopeSegmentationInterface(BaseIBLDataInterface, BaseSegmentationExtractorInterface):
-    """Interface for IBLMesoscope segmentation data."""
+class MesoscopeSegmentationInterface(BaseIBLDataInterface, BaseSegmentationExtractorInterface):
+    """Interface for Meso segmentation data."""
 
-    Extractor = IBLMesoscopeSegmentationExtractor
-    display_name = "IBLMesoscope Segmentation"
+    Extractor = MesoscopeSegmentationExtractor
+    display_name = "Meso Segmentation"
     associated_suffixes = (".npy",)
-    info = "Interface for IBLMesoscope segmentation."
+    info = "Interface for Meso segmentation."
 
     @classmethod
     def get_extractor_class(cls):
-        return IBLMesoscopeSegmentationExtractor
+        return MesoscopeSegmentationExtractor
 
     @classmethod
     def get_source_schema(cls) -> dict:
         """
-        Get the source schema for the IBLMesoscope segmentation interface.
+        Get the source schema for the Meso segmentation interface.
 
         Returns
         -------
         dict
             The schema dictionary containing input parameters and descriptions
-            for initializing the IBLMesoscope segmentation interface.
+            for initializing the Meso segmentation interface.
         """
         schema = super().get_source_schema()
         schema["properties"]["folder_path"][
             "description"
-        ] = "Path to the folder containing IBLMesoscope segmentation data. Should contain 'FOV_#' subfolder(s)."
+        ] = "Path to the folder containing Meso segmentation data. Should contain 'FOV_#' subfolder(s)."
         schema["properties"]["FOV_name"][
             "description"
         ] = "The name of the FOV to load. This interface only loads one FOV at a time. Use the full name, e.g. 'FOV_00'. If this value is omitted, the first FOV found will be loaded."
@@ -47,19 +47,19 @@ class IBLMesoscopeSegmentationInterface(BaseIBLDataInterface, BaseSegmentationEx
     @classmethod
     def get_available_planes(cls, folder_path: DirectoryPath) -> list[str]:
         """
-        Get the available planes in the IBLMesoscope segmentation folder.
+        Get the available planes in the Meso segmentation folder.
 
         Parameters
         ----------
         folder_path : DirectoryPath
-            Path to the folder containing IBLMesoscope segmentation data.
+            Path to the folder containing Meso segmentation data.
 
         Returns
         -------
         list
             List of available plane names in the dataset.
         """
-        return IBLMesoscopeSegmentationExtractor.get_available_planes(folder_path=folder_path)
+        return MesoscopeSegmentationExtractor.get_available_planes(folder_path=folder_path)
 
     @validate_call
     def __init__(
@@ -73,11 +73,11 @@ class IBLMesoscopeSegmentationInterface(BaseIBLDataInterface, BaseSegmentationEx
         Parameters
         ----------
         folder_path : DirectoryPath
-            Path to the folder containing IBLMesoscope segmentation data. Should contain 'plane#' sub-folders.
+            Path to the folder containing Meso segmentation data. Should contain 'plane#' sub-folders.
         FOV_name: str, optional
             The name of the plane to load. This interface only loads one plane at a time.
             If this value is omitted, the first plane found will be loaded.
-            To determine what planes are available, use ``IBLMesoscopeSegmentationInterface.get_available_planes(folder_path)``.
+            To determine what planes are available, use ``MesoscopeSegmentationInterface.get_available_planes(folder_path)``.
         """
 
         super().__init__(folder_path=folder_path, FOV_name=FOV_name)
@@ -88,7 +88,7 @@ class IBLMesoscopeSegmentationInterface(BaseIBLDataInterface, BaseSegmentationEx
 
     def get_metadata(self) -> DeepDict:
         """
-        Get metadata for the IBLMesoscope segmentation data.
+        Get metadata for the Meso segmentation data.
 
         Returns
         -------

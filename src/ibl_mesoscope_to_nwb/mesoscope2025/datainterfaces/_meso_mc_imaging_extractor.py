@@ -6,10 +6,10 @@ from pydantic import DirectoryPath
 from roiextractors import ImagingExtractor
 
 
-class IBLMesoscopeMotionCorrectedImagingExtractor(ImagingExtractor):
+class MesoscopeMotionCorrectedImagingExtractor(ImagingExtractor):
     """A segmentation extractor for IBL Motion Corrected Mesoscopic imaging data (.bin)."""
 
-    extractor_name = "IBLMesoscopeMotionCorrectedImagingExtractor"
+    extractor_name = "MesoscopeMotionCorrectedImagingExtractor"
 
     @classmethod
     def get_available_planes(cls, folder_path: DirectoryPath) -> list[str]:
@@ -35,7 +35,7 @@ class IBLMesoscopeMotionCorrectedImagingExtractor(ImagingExtractor):
         return FOV_names
 
     def __init__(self, file_path: str):
-        """Initialize a IBLMesoscopeMotionCorrectedImagingExtractor instance.
+        """Initialize a MesoscopeMotionCorrectedImagingExtractor instance.
 
         Main class for extracting imaging data from .bin format.
 

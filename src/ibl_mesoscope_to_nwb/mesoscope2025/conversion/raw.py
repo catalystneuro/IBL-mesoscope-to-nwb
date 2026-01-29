@@ -13,7 +13,7 @@ from pynwb import NWBFile
 
 from ibl_mesoscope_to_nwb.mesoscope2025 import RawMesoscopeNWBConverter
 from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
-    IBLMesoscopeRawImagingInterface,
+    MesoscopeRawImagingInterface,
 )
 from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
     sanitize_subject_id_for_dandi,
@@ -105,7 +105,7 @@ def convert_raw_session(
 
         tiff_files = natsorted(raw_imaging_folder.glob(f"*.tif"))
         for FOV_index, FOV_name in enumerate(FOV_names):  # Limiting to first 2 FOVs for testing
-            data_interfaces[f"{task}{FOV_name}RawImaging"] = IBLMesoscopeRawImagingInterface(
+            data_interfaces[f"{task}{FOV_name}RawImaging"] = MesoscopeRawImagingInterface(
                 file_paths=tiff_files, plane_index=FOV_index, channel_name="Channel 1", FOV_name=FOV_name, task=task
             )
             conversion_options.update(

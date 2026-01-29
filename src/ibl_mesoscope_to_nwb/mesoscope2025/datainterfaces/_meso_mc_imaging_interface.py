@@ -10,12 +10,12 @@ from pynwb import NWBFile
 from ibl_to_nwb.datainterfaces._base_ibl_interface import BaseIBLDataInterface
 
 from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
-    IBLMesoscopeMotionCorrectedImagingExtractor,
+    MesoscopeMotionCorrectedImagingExtractor,
 )
 
 
-class IBLMesoscopeMotionCorrectedImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInterface):
-    """Data Interface for IBLMesoscopeMotionCorrectedImagingExtractor."""
+class MesoscopeMotionCorrectedImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInterface):
+    """Data Interface for MesoscopeMotionCorrectedImagingExtractor."""
 
     display_name = "IBL Motion Corrected Mesoscope Imaging"
     associated_suffixes = (".bin", ".npy")
@@ -23,7 +23,7 @@ class IBLMesoscopeMotionCorrectedImagingInterface(BaseIBLDataInterface, BaseImag
 
     @classmethod
     def get_extractor_class(cls):
-        return IBLMesoscopeMotionCorrectedImagingExtractor
+        return MesoscopeMotionCorrectedImagingExtractor
 
     def __init__(
         self,
@@ -31,7 +31,7 @@ class IBLMesoscopeMotionCorrectedImagingInterface(BaseIBLDataInterface, BaseImag
         verbose: bool = False,
     ):
         """
-        Initialize the IBLMesoscopeMotionCorrectedImagingInterface.
+        Initialize the MesoscopeMotionCorrectedImagingInterface.
 
         Parameters
         ----------

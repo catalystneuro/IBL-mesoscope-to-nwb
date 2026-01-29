@@ -3,7 +3,7 @@ from roiextractors import ScanImageImagingExtractor
 from roiextractors.extraction_tools import PathType, get_package
 
 
-class IBLMesoscopeRawImagingExtractor(ScanImageImagingExtractor):
+class MesoscopeRawImagingExtractor(ScanImageImagingExtractor):
     """A segmentation extractor for reading IBL Raw Mesoscopic imaging data produced via ScanImage software.
 
     This extractor is designed to handle the structure of ScanImage TIFF files, which can contain
@@ -31,7 +31,7 @@ class IBLMesoscopeRawImagingExtractor(ScanImageImagingExtractor):
 
     """
 
-    extractor_name = "IBLMesoscopeRawImagingExtractor"
+    extractor_name = "MesoscopeRawImagingExtractor"
 
     def __init__(
         self,
@@ -41,7 +41,7 @@ class IBLMesoscopeRawImagingExtractor(ScanImageImagingExtractor):
         plane_index: int | None = None,
     ):
         """
-        Initialize the IBLMesoscopeRawImagingExtractor.
+        Initialize the MesoscopeRawImagingExtractor.
 
         Parameters
         ----------
@@ -64,7 +64,7 @@ class IBLMesoscopeRawImagingExtractor(ScanImageImagingExtractor):
         Examples
         --------
         # Explicitly specifying multiple files
-        >>> extractor = IBLMesoscopeRawImagingExtractor(
+        >>> extractor = MesoscopeRawImagingExtractor(
         ...     file_paths=['path/to/file1.tif', 'path/to/file2.tif', 'path/to/file3.tif'],
         ...     channel_name='Channel 1'
         ... )

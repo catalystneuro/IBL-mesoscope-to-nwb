@@ -14,11 +14,11 @@ from pynwb import NWBFile
 from ibl_to_nwb.datainterfaces._base_ibl_interface import BaseIBLDataInterface
 
 from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
-    IBLMesoscopeRawImagingExtractor,
+    MesoscopeRawImagingExtractor,
 )
 
 
-class IBLMesoscopeRawImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInterface):
+class MesoscopeRawImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInterface):
     """Data Interface for IBL Mesoscope Raw Imaging data."""
 
     display_name = "IBL Raw Mesoscope Imaging"
@@ -83,7 +83,7 @@ class IBLMesoscopeRawImagingInterface(BaseIBLDataInterface, BaseImagingExtractor
         self.task = task
 
     def get_extractor_class(self):
-        return IBLMesoscopeRawImagingExtractor
+        return MesoscopeRawImagingExtractor
 
     def get_metadata(self) -> DeepDict:
         """

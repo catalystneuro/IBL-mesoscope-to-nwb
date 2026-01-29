@@ -24,11 +24,11 @@ from pynwb import NWBFile
 
 from ibl_mesoscope_to_nwb.mesoscope2025 import ProcessedMesoscopeNWBConverter
 from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
-    IBLMesoscopeAnatomicalLocalizationInterface,
-    IBLMesoscopeMotionCorrectedImagingExtractor,
-    IBLMesoscopeMotionCorrectedImagingInterface,
-    IBLMesoscopeSegmentationExtractor,
-    IBLMesoscopeSegmentationInterface,
+    MesoscopeAnatomicalLocalizationInterface,
+    MesoscopeMotionCorrectedImagingExtractor,
+    MesoscopeMotionCorrectedImagingInterface,
+    MesoscopeSegmentationExtractor,
+    MesoscopeSegmentationInterface,
     MesoscopeWheelKinematicsInterface,
     MesoscopeWheelMovementsInterface,
     MesoscopeWheelPositionInterface,
@@ -343,11 +343,11 @@ def convert_processed_session(
 
     # # Add Motion Corrected Imaging
     mc_imaging_folder = Path(paths["mc_imaging_folder"])
-    available_FOVs = IBLMesoscopeMotionCorrectedImagingExtractor.get_available_planes(mc_imaging_folder)
+    available_FOVs = MesoscopeMotionCorrectedImagingExtractor.get_available_planes(mc_imaging_folder)
     available_FOVs = available_FOVs[:2] if stub_test else available_FOVs  # Limit to first 2 planes for testing
     for FOV_index, FOV_name in enumerate(available_FOVs):
         file_path = mc_imaging_folder / FOV_name / "imaging.frames_motionRegistered.bin"
-        data_interfaces[f"{FOV_name}MotionCorrectedImaging"] = IBLMesoscopeMotionCorrectedImagingInterface(
+        data_interfaces[f"{FOV_name}MotionCorrectedImaging"] = MesoscopeMotionCorrectedImagingInterface(
             file_path=file_path
         )
         conversion_options.update(
@@ -356,17 +356,17 @@ def convert_processed_session(
 
     # # Add Segmentation
     alf_folder = paths["session_folder"] / "alf"
-    FOV_names = IBLMesoscopeSegmentationExtractor.get_available_planes(alf_folder)
+    FOV_names = MesoscopeSegmentationExtractor.get_available_planes(alf_folder)
     FOV_names = FOV_names[:2] if stub_test else FOV_names  # Limit to first 2 planes for testing
     for FOV_name in FOV_names:
-        data_interfaces[f"{FOV_name}Segmentation"] = IBLMesoscopeSegmentationInterface(
+        data_interfaces[f"{FOV_name}Segmentation"] = MesoscopeSegmentationInterface(
             folder_path=alf_folder, FOV_name=FOV_name
         )
         conversion_options.update({f"{FOV_name}Segmentation": dict(stub_test=False)})
 
     # Add Anatomical Localization
     for FOV_name in FOV_names:
-        data_interfaces[f"{FOV_name}AnatomicalLocalization"] = IBLMesoscopeAnatomicalLocalizationInterface(
+        data_interfaces[f"{FOV_name}AnatomicalLocalization"] = MesoscopeAnatomicalLocalizationInterface(
             folder_path=alf_folder, FOV_name=FOV_name
         )
         conversion_options.update({f"{FOV_name}AnatomicalLocalization": dict()})

@@ -2,7 +2,7 @@
 
 Classes
 -------
-IBLMesoscopeSegmentationExtractor
+MesoscopeSegmentationExtractor
     A segmentation extractor for Suite2p.
 """
 
@@ -18,10 +18,10 @@ from roiextractors.extraction_tools import _image_mask_extractor
 from roiextractors.segmentationextractor import _RoiResponse
 
 
-class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
+class MesoscopeSegmentationExtractor(SegmentationExtractor):
     """A segmentation extractor for IBL Mesoscope."""
 
-    extractor_name = "IBLMesoscopeSegmentationExtractor"
+    extractor_name = "MesoscopeSegmentationExtractor"
 
     @classmethod
     def get_available_planes(cls, folder_path: DirectoryPath) -> list[str]:
@@ -58,7 +58,7 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
         folder_path: str or Path
             The path to the 'alf' folder, where processed imaging data is stored.
         FOV_name: str, optional
-            The name of the plane to load, to determine what planes are available use IBLMesoscopeSegmentationExtractor.get_available_planes(folder_path).
+            The name of the plane to load, to determine what planes are available use MesoscopeSegmentationExtractor.get_available_planes(folder_path).
         """
 
         FOV_names = self.get_available_planes(folder_path=folder_path)
@@ -67,7 +67,7 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
                 # For backward compatibility maybe it is better to warn first
                 warn(
                     "More than one plane is detected! Please specify which plane you wish to load with the `FOV_name` argument. "
-                    "To see what planes are available, call `IBLMesoscopeSegmentationExtractor.get_available_planes(folder_path=...)`.",
+                    "To see what planes are available, call `MesoscopeSegmentationExtractor.get_available_planes(folder_path=...)`.",
                     UserWarning,
                 )
             FOV_name = FOV_names[0]
@@ -75,7 +75,7 @@ class IBLMesoscopeSegmentationExtractor(SegmentationExtractor):
         if FOV_name not in FOV_names:
             raise ValueError(
                 f"The selected plane '{FOV_name}' is not a valid plane name. To see what planes are available, "
-                f"call `IBLMesoscopeSegmentationExtractor.get_available_planes(folder_path=...)`."
+                f"call `MesoscopeSegmentationExtractor.get_available_planes(folder_path=...)`."
             )
         self.FOV_name = FOV_name
 

@@ -219,7 +219,7 @@ Single TIFF frame structure (vertical arrangement):
 
 ### Extraction Implementation
 
-The `IBLMesoscopeRawImagingExtractor` detects and handles Tiled configuration as follows:
+The `MesoscopeRawImagingExtractor` detects and handles Tiled configuration as follows:
 
 1. **Detection**: Checks `SI.hDisplay.volumeDisplayStyle` metadata field
 2. **FOV count**: Determines number of FOVs from `RoiGroups.imagingRoiGroup.rois` metadata
@@ -242,10 +242,10 @@ The `IBLMesoscopeRawImagingExtractor` detects and handles Tiled configuration as
 To extract data for a specific FOV from Tiled configuration files:
 
 ```python
-from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import IBLMesoscopeRawImagingExtractor
+from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import MesoscopeRawImagingExtractor
 
 # Extract FOV_03 (plane_index=3) from tiled data
-extractor = IBLMesoscopeRawImagingExtractor(
+extractor = MesoscopeRawImagingExtractor(
     file_path="path/to/tiled_imaging_data.tif",
     channel_name="Channel 2",
     plane_index=3  # Extracts FOV_03
