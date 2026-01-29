@@ -53,7 +53,7 @@ class MesoscopeROIAnatomicalLocalizationInterface(BaseIBLDataInterface):
             },
         }
 
-    # WARNING: The following method cannot be staticmethod due to self.task usage
+    # WARNING: The following method cannot be staticmethod due to self.FOV_name usage
     def get_load_object_kwargs(self) -> dict:
         """Return kwargs for one.load_object() call."""
         return {"obj": "mpciROIs", "collection": f"alf/{self.FOV_name}"}
@@ -323,7 +323,7 @@ class MesoscopeImageAnatomicalLocalizationInterface(BaseIBLDataInterface):
             },
         }
 
-    # WARNING: The following method cannot be staticmethod due to self.task usage
+    # WARNING: The following method cannot be staticmethod due to self.FOV_name usage
     def get_load_object_kwargs(self) -> dict:
         """Return kwargs for one.load_object() call."""
         return {"obj": "mpciMeanImage", "collection": f"alf/{self.FOV_name}"}
