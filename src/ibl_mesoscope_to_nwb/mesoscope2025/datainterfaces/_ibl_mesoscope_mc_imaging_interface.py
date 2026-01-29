@@ -7,13 +7,14 @@ from neuroconv.datainterfaces.ophys.baseimagingextractorinterface import (
 from neuroconv.utils import DeepDict
 from pydantic import FilePath
 from pynwb import NWBFile
+from ibl_to_nwb.datainterfaces._base_ibl_interface import BaseIBLDataInterface
 
 from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
     IBLMesoscopeMotionCorrectedImagingExtractor,
 )
 
 
-class IBLMesoscopeMotionCorrectedImagingInterface(BaseImagingExtractorInterface):
+class IBLMesoscopeMotionCorrectedImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInterface):
     """Data Interface for IBLMesoscopeMotionCorrectedImagingExtractor."""
 
     display_name = "IBL Motion Corrected Mesoscope Imaging"

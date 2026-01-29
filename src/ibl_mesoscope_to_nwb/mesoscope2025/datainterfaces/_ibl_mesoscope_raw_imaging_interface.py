@@ -11,12 +11,14 @@ from neuroconv.utils import DeepDict, dict_deep_update, load_dict_from_file
 from pydantic import FilePath
 from pynwb import NWBFile
 
+from ibl_to_nwb.datainterfaces._base_ibl_interface import BaseIBLDataInterface
+
 from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
     IBLMesoscopeRawImagingExtractor,
 )
 
 
-class IBLMesoscopeRawImagingInterface(BaseImagingExtractorInterface):
+class IBLMesoscopeRawImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInterface):
     """Data Interface for IBL Mesoscope Raw Imaging data."""
 
     display_name = "IBL Raw Mesoscope Imaging"

@@ -6,11 +6,12 @@ from neuroconv.datainterfaces.ophys.basesegmentationextractorinterface import (
 from neuroconv.utils import DeepDict
 from pydantic import DirectoryPath, validate_call
 from pynwb import NWBFile
+from ibl_to_nwb.datainterfaces._base_ibl_interface import BaseIBLDataInterface
 
 from ._ibl_mesoscope_segmentation_extractor import IBLMesoscopeSegmentationExtractor
 
 
-class IBLMesoscopeSegmentationInterface(BaseSegmentationExtractorInterface):
+class IBLMesoscopeSegmentationInterface(BaseIBLDataInterface, BaseSegmentationExtractorInterface):
     """Interface for IBLMesoscope segmentation data."""
 
     Extractor = IBLMesoscopeSegmentationExtractor

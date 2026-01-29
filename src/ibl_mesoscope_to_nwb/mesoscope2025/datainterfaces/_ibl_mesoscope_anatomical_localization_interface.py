@@ -9,14 +9,15 @@ from ndx_anatomical_localization import (
     Space,
     AllenCCFv3Space,
 )
-from neuroconv.basedatainterface import BaseDataInterface
+
 from pydantic import DirectoryPath
 from pynwb import NWBFile
 from pynwb.image import Images
 from pynwb.ophys import ImageSegmentation
+from ibl_to_nwb.datainterfaces._base_ibl_interface import BaseIBLDataInterface
 
 
-class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
+class IBLMesoscopeAnatomicalLocalizationInterface(BaseIBLDataInterface):
     """A segmentation extractor for IBL Mesoscope."""
 
     interface_name = "IBLMesoscopeAnatomicalLocalizationInterface"
