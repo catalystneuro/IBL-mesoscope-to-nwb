@@ -1,18 +1,41 @@
 """Primary script to run to convert an entire session for of data using the NWBConverter."""
 
-import datetime
 import json
+import time
 from pathlib import Path
-from typing import List, Union
-from zoneinfo import ZoneInfo
+from typing import List
 
 import numpy as np
+from ibl_to_nwb.datainterfaces import (
+    BrainwideMapTrialsInterface,
+    IblPoseEstimationInterface,
+    LickInterface,
+    PassiveIntervalsInterface,
+    PassiveReplayStimInterface,
+    PupilTrackingInterface,
+    RoiMotionEnergyInterface,
+    SessionEpochsInterface,
+)
+from ndx_ibl import IblMetadata, IblSubject
 from neuroconv.utils import dict_deep_update, load_dict_from_file
+from one.api import ONE
+from pynwb import NWBFile
 
 from ibl_mesoscope_to_nwb.mesoscope2025 import ProcessedMesoscopeNWBConverter
 from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
+    IBLMesoscopeAnatomicalLocalizationInterface,
     IBLMesoscopeMotionCorrectedImagingExtractor,
+    IBLMesoscopeMotionCorrectedImagingInterface,
     IBLMesoscopeSegmentationExtractor,
+    IBLMesoscopeSegmentationInterface,
+    MesoscopeWheelKinematicsInterface,
+    MesoscopeWheelMovementsInterface,
+    MesoscopeWheelPositionInterface,
+)
+from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
+    get_available_tasks,
+    sanitize_subject_id_for_dandi,
+    setup_paths,
 )
 
 
@@ -254,113 +277,190 @@ def update_processed_ophys_metadata(
     return ophys_metadata
 
 
-def processed_session_to_nwb(
-    data_dir_path: Union[str, Path],
-    output_dir_path: Union[str, Path],
-    subject_id: str,
+def convert_processed_session(
     eid: str,
+    one: ONE,
+    base_path: Path,
     stub_test: bool = False,
-    overwrite: bool = False,
-):
-    """
-    Convert a processed IBL mesoscope session to NWB format.
-
-    This function converts processed mesoscope data including motion-corrected
-    imaging and segmentation data from the IBL pipeline to NWB format.
+    append_on_disk_nwbfile: bool = False,
+    verbose: bool = True,
+) -> dict:
+    """Convert IBL processed session to NWB.
 
     Parameters
     ----------
-    data_dir_path : Union[str, Path]
-        Path to the directory containing the processed session data.
-        Expected to contain 'suite2p' and 'alf' subdirectories.
-    output_dir_path : Union[str, Path]
-        Path to the directory where the NWB file will be saved.
-    subject_id : str
-        The subject ID for the session (e.g., 'SP061').
     eid : str
-        The experiment ID (session ID) for the session.
+        Experiment ID (session UUID)
+    one : ONE
+        ONE API instance
     stub_test : bool, optional
-        Whether to run a stub test with limited data (first 2 planes only),
-        by default False.
-    overwrite : bool, optional
-        Whether to overwrite existing NWB files, by default False.
+        If True, creates minimal NWB for testing without downloading large files.
+        In stub mode, spike properties (spike_amplitudes, spike_distances_from_probe_tip)
+        are automatically skipped to reduce memory usage.
+    base_path : Path, optional
+        Base output directory for NWB files
+    append_on_disk_nwbfile: bool, optional
+        If True, append to an existing on-disk NWB file instead of creating a new one.
+    Returns
+    -------
+    dict
+        Conversion result information including NWB file path and timing
     """
-    data_dir_path = Path(data_dir_path)
-    output_dir_path = Path(output_dir_path)
-    if stub_test:
-        output_dir_path = output_dir_path / "nwb_stub"
-    output_dir_path.mkdir(parents=True, exist_ok=True)
-    nwbfile_path = output_dir_path / f"sub-{subject_id}_ses-{eid}.nwb"
+    if verbose:
+        print(f"Starting PROCESSED conversion for session {eid}...")
 
-    source_data = dict()
+    # Setup paths
+    start_time = time.time()
+    paths = setup_paths(one, eid, base_path=base_path)
+
+    session_info = one.alyx.rest("sessions", "read", id=eid)
+    subject_nickname = session_info.get("subject")
+    if isinstance(subject_nickname, dict):
+        subject_nickname = subject_nickname.get("nickname") or subject_nickname.get("name")
+    if not subject_nickname:
+        subject_nickname = "unknown"
+
+    # New structure: nwbfiles/{full|stub}/sub-{subject}/*.nwb
+    conversion_type = "stub" if stub_test else "full"
+    # Sanitize subject nickname for DANDI compliance (replace underscores with hyphens)
+    subject_id_for_filenames = sanitize_subject_id_for_dandi(subject_nickname)
+    output_dir = Path(paths["output_folder"]) / conversion_type / f"sub-{subject_id_for_filenames}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    nwbfile_path = output_dir / f"sub-{subject_id_for_filenames}_ses-{eid}_desc-processed_behavior+ophys.nwb"
+
+    # ========================================================================
+    # STEP 1: Define data interfaces
+    # ========================================================================
+
+    if verbose:
+        print(f"Creating data interfaces...")
+    interface_creation_start = time.time()
+
+    data_interfaces = dict()
     conversion_options = dict()
+    interface_kwargs = dict(one=one, session=eid)
 
-    # Add Motion Corrected Imaging
-    mc_imaging_folder = data_dir_path / "suite2p"
-    if not mc_imaging_folder.exists():
-        mc_imaging_folder = data_dir_path / "suite2"  # correct for typo in folder name
-        if not mc_imaging_folder.exists():
-            raise FileNotFoundError(f"Motion corrected imaging folder not found at {mc_imaging_folder}")
+    # # Add Motion Corrected Imaging
+    mc_imaging_folder = Path(paths["mc_imaging_folder"])
     available_FOVs = IBLMesoscopeMotionCorrectedImagingExtractor.get_available_planes(mc_imaging_folder)
     available_FOVs = available_FOVs[:2] if stub_test else available_FOVs  # Limit to first 2 planes for testing
     for FOV_index, FOV_name in enumerate(available_FOVs):
         file_path = mc_imaging_folder / FOV_name / "imaging.frames_motionRegistered.bin"
-        source_data.update({f"{FOV_name}MotionCorrectedImaging": dict(file_path=file_path)})
+        data_interfaces[f"{FOV_name}MotionCorrectedImaging"] = IBLMesoscopeMotionCorrectedImagingInterface(
+            file_path=file_path
+        )
         conversion_options.update(
             {f"{FOV_name}MotionCorrectedImaging": dict(stub_test=False, photon_series_index=FOV_index)}
         )
 
-    # Add Segmentation
-    alf_folder = data_dir_path / "alf"
+    # # Add Segmentation
+    alf_folder = paths["session_folder"] / "alf"
     FOV_names = IBLMesoscopeSegmentationExtractor.get_available_planes(alf_folder)
     FOV_names = FOV_names[:2] if stub_test else FOV_names  # Limit to first 2 planes for testing
     for FOV_name in FOV_names:
-        source_data.update({f"{FOV_name}Segmentation": dict(folder_path=alf_folder, FOV_name=FOV_name)})
+        data_interfaces[f"{FOV_name}Segmentation"] = IBLMesoscopeSegmentationInterface(
+            folder_path=alf_folder, FOV_name=FOV_name
+        )
         conversion_options.update({f"{FOV_name}Segmentation": dict(stub_test=False)})
 
     # Add Anatomical Localization
     for FOV_name in FOV_names:
-        source_data.update({f"{FOV_name}AnatomicalLocalization": dict(folder_path=alf_folder, FOV_name=FOV_name)})
+        data_interfaces[f"{FOV_name}AnatomicalLocalization"] = IBLMesoscopeAnatomicalLocalizationInterface(
+            folder_path=alf_folder, FOV_name=FOV_name
+        )
         conversion_options.update({f"{FOV_name}AnatomicalLocalization": dict()})
 
-    # Add Lick Times
-    source_data.update({"LickTimes": dict(folder_path=alf_folder)})
-    conversion_options.update({"LickTimes": dict()})
+    # Behavioral data
+    data_interfaces["BrainwideMapTrials"] = BrainwideMapTrialsInterface(**interface_kwargs)
+    conversion_options.update({"BrainwideMapTrials": dict(stub_test=stub_test, stub_trials=10)})
 
-    # Add Wheel Movement
-    source_data.update({"WheelMovement": dict(folder_path=alf_folder / "task_00")})
-    conversion_options.update({"WheelMovement": dict(stub_test=stub_test)})
+    # Wheel data - add each interface if its data is available
+    available_tasks = get_available_tasks(**interface_kwargs)
+    for task in available_tasks:
+        if MesoscopeWheelPositionInterface.check_availability(one, eid, task=task)["available"]:
+            data_interfaces[f"{task.replace('task_', 'Task')}WheelPosition"] = MesoscopeWheelPositionInterface(
+                **interface_kwargs, task=task
+            )
+            conversion_options.update({f"{task.replace('task_', 'Task')}WheelPosition": dict(stub_test=stub_test)})
+        if MesoscopeWheelKinematicsInterface.check_availability(one, eid, task=task)["available"]:
+            data_interfaces[f"{task.replace('task_', 'Task')}WheelKinematics"] = MesoscopeWheelKinematicsInterface(
+                **interface_kwargs, task=task
+            )
+            conversion_options.update({f"{task.replace('task_', 'Task')}WheelKinematics": dict(stub_test=stub_test)})
+        if MesoscopeWheelMovementsInterface.check_availability(one, eid, task=task)["available"]:
+            data_interfaces[f"{task.replace('task_', 'Task')}WheelMovements"] = MesoscopeWheelMovementsInterface(
+                **interface_kwargs, task=task
+            )
+            conversion_options.update({f"{task.replace('task_', 'Task')}WheelMovements": dict(stub_test=stub_test)})
 
-    # Add ROI Motion Energy
-    camera_names = ["rightCamera", "leftCamera"]
-    for camera_name in camera_names:
-        source_data.update({f"{camera_name}ROIMotionEnergy": dict(folder_path=alf_folder, camera_name=camera_name)})
-        conversion_options.update({f"{camera_name}ROIMotionEnergy": dict()})
+    # Session epochs (high-level task vs passive phases)
+    if SessionEpochsInterface.check_availability(one, eid)["available"]:
+        data_interfaces["SessionEpochs"] = SessionEpochsInterface(**interface_kwargs)
 
-    # Add Pupil Tracking
-    for camera_name in camera_names:
-        source_data.update({f"{camera_name}PupilTracking": dict(folder_path=alf_folder, camera_name=camera_name)})
-        conversion_options.update({f"{camera_name}PupilTracking": dict()})
+    # Passive period data - add each interface if its data is available
+    if PassiveIntervalsInterface.check_availability(one, eid)["available"]:
+        data_interfaces["PassiveIntervals"] = PassiveIntervalsInterface(**interface_kwargs)
 
-    # Add Trials
-    source_data.update({"Trials": dict(folder_path=alf_folder / "task_00")})
-    conversion_options.update({"Trials": dict(stub_test=stub_test, stub_trials=10)})
+    # NOTE: PassiveRFMInterface is temporarily disabled due to data quality issues - waiting for upstream fix
+    # if PassiveRFMInterface.check_availability(one, eid)["available"]:
+    #     data_interfaces["PassiveRFM"] = PassiveRFMInterface(**interface_kwargs)
 
-    converter = ProcessedMesoscopeNWBConverter(source_data=source_data)
+    if PassiveReplayStimInterface.check_availability(one, eid)["available"]:
+        data_interfaces["PassiveReplayStim"] = PassiveReplayStimInterface(**interface_kwargs)
 
-    # Add datetime to conversion
+    # Licks - optional interface
+    if LickInterface.check_availability(one, eid)["available"]:
+        data_interfaces["Licks"] = LickInterface(**interface_kwargs)
+
+    # Camera-based interfaces (pose estimation, pupil tracking, ROI motion energy)
+    # Check availability per camera since not all sessions have all cameras
+    for camera_view in ["left", "right", "body"]:
+        camera_name = f"{camera_view}Camera"
+
+        # Pose estimation - check_availability handles Lightning Pose → DLC fallback
+        pose_availability = IblPoseEstimationInterface.check_availability(one, eid, camera_name=camera_name)
+        if pose_availability["available"]:
+            # Determine tracker from which alternative was found
+            alternative = pose_availability.get("alternative_used", "lightning_pose")
+            tracker = "lightningPose" if alternative == "lightning_pose" else "dlc"
+            data_interfaces[f"{camera_name}PoseEstimation"] = IblPoseEstimationInterface(
+                camera_name=camera_name, tracker=tracker, **interface_kwargs
+            )
+
+        # Pupil tracking - only for left/right cameras (body camera doesn't capture eyes)
+        if camera_view in ["left", "right"]:
+            if PupilTrackingInterface.check_availability(one, eid, camera_name=camera_name)["available"]:
+                data_interfaces[f"{camera_name}PupilTracking"] = PupilTrackingInterface(
+                    camera_name=camera_name, **interface_kwargs
+                )
+
+        # ROI motion energy
+        if RoiMotionEnergyInterface.check_availability(one, eid, camera_name=camera_name)["available"]:
+            data_interfaces[f"{camera_name}RoiMotionEnergy"] = RoiMotionEnergyInterface(
+                camera_name=camera_name, **interface_kwargs
+            )
+    interface_creation_time = time.time() - interface_creation_start
+    if verbose:
+        print(f"Data interfaces created in {interface_creation_time:.2f}s")
+
+    # ========================================================================
+    # STEP 2: Create converter
+    # ========================================================================
+    converter = ProcessedMesoscopeNWBConverter(one=one, session=eid, data_interfaces=data_interfaces)
+
+    # ========================================================================
+    # STEP 3: Get metadata
+    # ========================================================================
     metadata = converter.get_metadata()
-    date = datetime.datetime(year=2020, month=1, day=1, tzinfo=ZoneInfo("US/Eastern"))
-    metadata["NWBFile"]["session_start_time"] = date
 
     # Update default metadata with the editable in the corresponding yaml file
-    editable_metadata_path = Path(__file__).parent.parent / "metadata" / "mesoscope_general_metadata.yaml"
+    editable_metadata_path = Path(__file__).parent.parent / "_metadata" / "mesoscope_general_metadata.yaml"
     editable_metadata = load_dict_from_file(editable_metadata_path)
     metadata = dict_deep_update(metadata, editable_metadata)
 
     # Update ophys metadata
-    ophys_metadata_path = Path(__file__).parent.parent / "metadata" / "mesoscope_processed_ophys_metadata.yaml"
-    raw_imaging_metadata_path = data_dir_path / "raw_imaging_data_00" / "_ibl_rawImagingData.meta.json"
+    ophys_metadata_path = Path(__file__).parent.parent / "_metadata" / "mesoscope_processed_ophys_metadata.yaml"
+    raw_imaging_metadata_path = paths["session_folder"] / "raw_imaging_data_00" / "_ibl_rawImagingData.meta.json"
     updated_ophys_metadata = update_processed_ophys_metadata(
         ophys_metadata_path=ophys_metadata_path,
         raw_imaging_metadata_path=raw_imaging_metadata_path,
@@ -368,12 +468,65 @@ def processed_session_to_nwb(
     )
     metadata = dict_deep_update(metadata, updated_ophys_metadata)
 
-    metadata["Subject"]["subject_id"] = subject_id
+    # ========================================================================
+    # STEP 4: Write NWB file
+    # ========================================================================
+    overwrite = False
+    if nwbfile_path.exists() and not append_on_disk_nwbfile:
+        overwrite = True
 
-    # Run conversion
+    subject_metadata_for_ndx = metadata.pop("Subject")
+    ibl_subject = IblSubject(**subject_metadata_for_ndx)
+
+    # TODO: Solve this for append_on_disk_nwbfile=True case
+    nwbfile = NWBFile(**metadata["NWBFile"])
+    nwbfile.subject = ibl_subject
+
+    if verbose:
+        print(f"Writing to NWB '{nwbfile_path}' ...")
+    write_start = time.time()
+
     converter.run_conversion(
         metadata=metadata,
+        nwbfile=nwbfile,
         nwbfile_path=nwbfile_path,
         conversion_options=conversion_options,
+        append_on_disk_nwbfile=append_on_disk_nwbfile,
         overwrite=overwrite,
+    )
+
+    write_time = time.time() - write_start
+
+    # Get NWB file size
+    nwb_size_bytes = nwbfile_path.stat().st_size
+    nwb_size_gb = nwb_size_bytes / (1024**3)
+
+    if verbose:
+        total_time_seconds = time.time() - start_time
+        total_time_hours = total_time_seconds / 3600
+        print(f"NWB file written in {write_time:.2f}s")
+        print(f"PROCESSED NWB file size: {nwb_size_gb:.2f} GB ({nwb_size_bytes:,} bytes)")
+        print(f"Write speed: {nwb_size_gb / (write_time / 3600):.2f} GB/hour")
+        print(f"PROCESSED conversion total time: {total_time_seconds:.2f}s")
+        print(f"PROCESSED conversion total time: {total_time_hours:.2f} hours")
+        print(f"PROCESSED conversion completed: {nwbfile_path}")
+        print(f"PROCESSED NWB saved to: {nwbfile_path}")
+
+    return {
+        "nwbfile_path": nwbfile_path,
+        "nwb_size_bytes": nwb_size_bytes,
+        "nwb_size_gb": nwb_size_gb,
+        "write_time": write_time,
+    }
+
+
+if __name__ == "__main__":
+    # Example usage
+    convert_processed_session(
+        eid="5ce2e17e-8471-42d4-8a16-21949710b328",
+        one=ONE(),  # base_url="https://alyx.internationalbrainlab.org"
+        stub_test=True,
+        base_path=Path("E:/IBL-data-share"),
+        append_on_disk_nwbfile=False,
+        verbose=True,
     )

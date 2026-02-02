@@ -2,7 +2,13 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
-from ndx_anatomical_localization import AnatomicalCoordinatesImage, AnatomicalCoordinatesTable, Localization, Space
+from ndx_anatomical_localization import (
+    AnatomicalCoordinatesImage,
+    AnatomicalCoordinatesTable,
+    Localization,
+    Space,
+    AllenCCFv3Space,
+)
 from neuroconv.basedatainterface import BaseDataInterface
 from pydantic import DirectoryPath
 from pynwb import NWBFile
@@ -228,21 +234,28 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
             nwbfile.add_lab_meta_data(localization)
 
         # Create coordinate space objects
-        if "space" not in localization.spaces:
-            self.ccf_space = Space.get_predefined_space("CCFv3")
-            localization.add_spaces(spaces=[self.ccf_space])
+        ibl_space_name = "IBLBregma"
+        if ibl_space_name not in localization.spaces:
+            self.ibl_space = Space(
+                name="IBLBregma",
+                space_name="IBLBregma",
+                origin="bregma",
+                units="um",
+                orientation="RAS",
+            )
+            localization.add_spaces(spaces=[self.ibl_space])
         else:
-            self.ccf_space = localization.spaces["space"]
+            self.ibl_space = localization.spaces[ibl_space_name]
 
         # Create AnatomicalCoordinatesTable for CCF coordinates
-        ccf_table = AnatomicalCoordinatesTable(
-            name=f"ROIsCCFv3AnatomicalCoordinates{camel_case_FOV_name}",
-            description=f"ROI centroid estimated coordinates in the CCF coordinate system for {self.FOV_name}.",
+        ibl_table = AnatomicalCoordinatesTable(
+            name=f"ROIsIBLBregmaAnatomicalCoordinates{camel_case_FOV_name}",
+            description=f"ROI centroid estimated coordinates in the IBL-Bregma coordinate system for {self.FOV_name}.",
             target=plane_segmentation,
-            space=self.ccf_space,
+            space=self.ibl_space,  # TODO: Verify this is correct
             method="TODO: Add method description",
         )
-        ccf_table.add_column(
+        ibl_table.add_column(
             name="brain_region_id",
             description="The brain region ID for the ROI in the plane segmentation table.",
         )
@@ -252,7 +265,7 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
         rois_ccf_regions = self.get_rois_brain_location_ids()
 
         for roi_index in plane_segmentation.id[:]:
-            ccf_table.add_row(
+            ibl_table.add_row(
                 localized_entity=roi_index,
                 x=float(rois_ccf_mlapdv[roi_index][0]),
                 y=float(rois_ccf_mlapdv[roi_index][1]),
@@ -262,21 +275,24 @@ class IBLMesoscopeAnatomicalLocalizationInterface(BaseDataInterface):
             )
 
         # Add tables to localization
-        localization.add_anatomical_coordinates_tables([ccf_table])
-        # Get mean image anatomical localization data
-        mean_image_ccf_mlapdv = self.get_mean_image_anatomical_localization()
-        mean_image_ccf_regions = self.get_mean_image_brain_location_id()
+        localization.add_anatomical_coordinates_tables([ibl_table])
 
-        ccf_image = AnatomicalCoordinatesImage(
-            name=f"MeanImageCCFv3AnatomicalCoordinates{camel_case_FOV_name}",
-            description=f"Mean image estimated coordinates in the CCF coordinate system for {self.FOV_name}.",
-            space=self.ccf_space,
+        # Get mean image anatomical localization data
+        mean_image_ibl_mlapdv = self.get_mean_image_anatomical_localization()
+        mean_image_ibl_regions = self.get_mean_image_brain_location_id()
+
+        ibl_image = AnatomicalCoordinatesImage(
+            name=f"MeanImageIBLBregmaAnatomicalCoordinates{camel_case_FOV_name}",
+            description=f"Mean image estimated coordinates in the IBL-Bregma coordinate system for {self.FOV_name}.",
+            space=self.ibl_space,
             method="TODO: Add method description",
             image=mean_image,
-            x=mean_image_ccf_mlapdv[:, :, 0],
-            y=mean_image_ccf_mlapdv[:, :, 1],
-            z=mean_image_ccf_mlapdv[:, :, 2],
-            brain_region_id=mean_image_ccf_regions,
+            x=mean_image_ibl_mlapdv[:, :, 0],
+            y=mean_image_ibl_mlapdv[:, :, 1],
+            z=mean_image_ibl_mlapdv[:, :, 2],
+            brain_region_id=mean_image_ibl_regions,
         )
 
-        localization.add_anatomical_coordinates_images([ccf_image])
+        localization.add_anatomical_coordinates_images([ibl_image])
+
+        # TODO: Add IBL-Bregma anatomical localization (check if the data are actually in Allen CCFv3 or IBL-Bregma)

@@ -11,11 +11,3 @@ NWBFile:
   experimenter:
     - Last, First Middle
     - Last, First Middle
-Subject:
-  species: Mus musculus # Example
-  strain: C57BL/6 # Copied form IBL-to-nwb
-  description: A rich text description of the subject
-  age: TBD # in ISO 8601, such as "P1W2D"
-  sex: U # One of M, F, U, or O
-  date_of_birth: 2014-06-22 00:00:00-04:00 # Example
-
