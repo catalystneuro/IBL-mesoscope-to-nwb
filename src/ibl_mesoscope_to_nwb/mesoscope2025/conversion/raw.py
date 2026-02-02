@@ -1,271 +1,261 @@
 """Primary script to run to convert an entire session for of data using the NWBConverter."""
 
-import datetime
 import json
+import time
 from pathlib import Path
-from typing import List, Union
-from zoneinfo import ZoneInfo
 
-import numpy as np
+from ibl_to_nwb.datainterfaces import RawVideoInterface
 from natsort import natsorted
+from ndx_ibl import IblMetadata, IblSubject
 from neuroconv.utils import dict_deep_update, load_dict_from_file
+from one.api import ONE
+from pynwb import NWBFile
 
 from ibl_mesoscope_to_nwb.mesoscope2025 import RawMesoscopeNWBConverter
+from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
+    IBLMesoscopeRawImagingInterface,
+)
+from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
+    sanitize_subject_id_for_dandi,
+    setup_paths,
+)
 
 
-def update_raw_ophys_metadata(ophys_metadata_path: Path, raw_imaging_metadata_path: Path, FOV_names: List[str]) -> dict:
-    """
-    Update the ophys metadata structure with actual values from raw imaging metadata.
-
-    This function loads a template metadata structure from a YAML file and populates it with
-    actual experimental values from the IBL mesoscope raw imaging metadata JSON file. It creates
-    separate metadata entries for each field of view (FOV), including imaging planes, plane
-    segmentations, two-photon series, fluorescence traces, and segmentation images.
-
-    The function performs the following steps:
-    1. Load the metadata structure template from a YAML file
-    2. Load actual values from `_ibl_rawImagingData.meta.json` containing:
-       - ScanImage configuration parameters
-       - ROI definitions and spatial coordinates
-       - Laser settings and scanner properties
-       - Coordinate transformations (stereotactic coordinates)
-    3. For each FOV, extract and calculate:
-       - Spatial parameters (origin coordinates, grid spacing, pixel size)
-       - Brain region information (Allen CCF IDs)
-       - Imaging parameters (frame rate, z-position, dimensions)
-    4. Create metadata entries for each FOV with unique names and proper cross-references
+def convert_raw_session(
+    eid: str,
+    one: ONE,
+    base_path: Path,
+    stub_test: bool = False,
+    append_on_disk_nwbfile: bool = False,
+    verbose: bool = True,
+) -> dict:
+    """Convert IBL raw session to NWB.
 
     Parameters
     ----------
-    ophys_metadata_path : Path
-        Path to the YAML file containing the ophys metadata template structure.
-        Expected to contain templates for: ImagingPlane, ImageSegmentation,
-        TwoPhotonSeries, Fluorescence, and SegmentationImages.
-    raw_imaging_metadata_path : Path
-        Path to the `_ibl_rawImagingData.meta.json` file containing comprehensive
-        metadata about the mesoscopic imaging acquisition. This file includes:
-        - FOV array with spatial coordinates for each field of view
-        - ScanImage parameters (frame rate, scanner frequency, etc.)
-        - Stereotactic coordinates (ML, AP, DV) relative to bregma
-        - Brain region IDs from Allen Common Coordinate Framework (CCF) 2017
-    FOV_names : List[str]
-        List of field of view (FOV) names to process, used for creating unique
-        identifiers. Length must match the number of FOVs in raw_imaging_metadata.
-        Example: ['FOV_00', 'FOV_01', 'FOV_02', ...]
-
+    eid : str
+        Experiment ID (session UUID)
+    one : ONE
+        ONE API instance
+    stub_test : bool, optional
+        If True, creates minimal NWB for testing without downloading large files.
+        In stub mode, spike properties (spike_amplitudes, spike_distances_from_probe_tip)
+        are automatically skipped to reduce memory usage.
+    base_path : Path, optional
+        Base output directory for NWB files
+    append_on_disk_nwbfile: bool, optional
+        If True, append to an existing on-disk NWB file instead of creating a new one.
     Returns
     -------
     dict
-        Updated metadata dictionary with the following structure:
-        {
-            'Ophys': {
-                'Device': [...],  # Original device info preserved
-                'ImagingPlane': [  # One entry per FOV
-                    {
-                        'name': 'ImagingPlaneFOV00',
-                        'description': '...',
-                        'imaging_rate': 5.07,
-                        'location': '...',
-                        'origin_coords': [x, y, z],  # in meters
-                        'grid_spacing': [dx, dy],     # in meters
-                        ...
-                    },
-                    ...
-                ],
-                'TwoPhotonSeries': [...],  # One entry per FOV
-            }
-        }
-
-    Notes
-    -----
-    - Spatial coordinates are converted from micrometers (as stored in raw metadata)
-      to meters (NWB standard)
-    - Origin coordinates represent the top-left corner of each FOV in stereotactic space
-    - Grid spacing (pixel size) is calculated from FOV physical dimensions and pixel count
-    - The function uses deep copying of template structures to ensure independence
-      between FOVs
-
-    Examples
-    --------
-    >>> from pathlib import Path
-    >>> ophys_path = Path("metadata/mesoscope_raw_ophys_metadata.yaml")
-    >>> raw_path = Path("raw_imaging_data_00/_ibl_rawImagingData.meta.json")
-    >>> FOV_names = ['FOV_00', 'FOV_01', 'FOV_02']
-    >>> metadata = update_raw_ophys_metadata(ophys_path, raw_path, FOV_names)
-    >>> len(metadata['Ophys']['ImagingPlane'])
-    3
-    >>> metadata['Ophys']['ImagingPlane'][0]['name']
-    'ImagingPlaneFOV00'
+        Conversion result information including NWB file path and timing
     """
+    if verbose:
+        print(f"Starting RAW conversion for session {eid}...")
+    # Setup paths
+    start_time = time.time()
+    paths = setup_paths(one, eid, base_path=base_path)
 
-    # Load ophys metadata structure
-    ophys_metadata = load_dict_from_file(ophys_metadata_path)
+    session_info = one.alyx.rest("sessions", "read", id=eid)
+    subject_nickname = session_info.get("subject")
+    if isinstance(subject_nickname, dict):
+        subject_nickname = subject_nickname.get("nickname") or subject_nickname.get("name")
+    if not subject_nickname:
+        subject_nickname = "unknown"
 
-    # Load raw imaging metadata
-    with open(raw_imaging_metadata_path, "r") as f:
-        raw_metadata = json.load(f)
+    # New structure: nwbfiles/{full|stub}/sub-{subject}/*.nwb
+    conversion_type = "stub" if stub_test else "full"
+    # Sanitize subject nickname for DANDI compliance (replace underscores with hyphens)
+    subject_id_for_filenames = sanitize_subject_id_for_dandi(subject_nickname)
+    output_dir = Path(paths["output_folder"]) / conversion_type / f"sub-{subject_id_for_filenames}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    nwbfile_path = output_dir / f"sub-{subject_id_for_filenames}_ses-{eid}_desc-raw_behavior+ophys.nwb"
 
-    # Get the template structures (single entries from YAML)
-    imaging_plane_template = ophys_metadata["Ophys"]["ImagingPlane"][0]
-    two_photon_series_template = ophys_metadata["Ophys"]["TwoPhotonSeries"][0]
+    # ========================================================================
+    # STEP 1: Define data interfaces
+    # ========================================================================
 
-    # Clear the lists to populate with actual FOV data
-    ophys_metadata["Ophys"]["ImagingPlane"] = []
-    ophys_metadata["Ophys"]["TwoPhotonSeries"] = []
+    if verbose:
+        print(f"Creating data interfaces...")
+    interface_creation_start = time.time()
 
-    # Get global imaging rate
-    imaging_rate = raw_metadata["scanImageParams"]["hRoiManager"]["scanFrameRate"]
-
-    # Get device information (assumed single device)
-    device_metadata = ophys_metadata["Ophys"]["Device"][0]
-
-    # Iterate through each FOV
-    for FOV_index, FOV_name in enumerate(FOV_names):
-        camel_case_FOV_name = FOV_name.replace("_", "")
-        fov = raw_metadata["FOV"][FOV_index]
-
-        # Extract FOV-specific metadata
-        fov_uuid = fov["roiUUID"]
-        center_mlapdv = fov["MLAPDV"]["center"]  # [ML, AP, DV] in micrometers
-        brain_region_id = fov["brainLocationIds"]["center"]
-        dimensions = fov["nXnYnZ"]  # [width, height, depth] in pixels
-
-        # Calculate origin_coords from top-left corner (convert from micrometers to meters)
-        top_left = fov["MLAPDV"]["topLeft"]
-        origin_coords = [
-            top_left[0] * 1e-6,  # ML in meters
-            top_left[1] * 1e-6,  # AP in meters
-            top_left[2] * 1e-6,  # DV in meters
-        ]
-
-        # Calculate grid_spacing (pixel size in meters)
-        top_right = np.array(fov["MLAPDV"]["topRight"])
-        bottom_left = np.array(fov["MLAPDV"]["bottomLeft"])
-        top_left_array = np.array(top_left)
-
-        width_um = np.linalg.norm(top_right - top_left_array)
-        height_um = np.linalg.norm(bottom_left - top_left_array)
-
-        pixel_size_x = width_um / dimensions[0]  # μm/pixel
-        pixel_size_y = height_um / dimensions[1]  # μm/pixel
-
-        grid_spacing = [pixel_size_x * 1e-6, pixel_size_y * 1e-6]  # x spacing in meters  # y spacing in meters
-
-        # Create ImagingPlane entry for this FOV
-        imaging_plane = imaging_plane_template.copy()
-        imaging_plane["name"] = f"ImagingPlane{camel_case_FOV_name}"
-        imaging_plane["description"] = (
-            f"Field of view {FOV_index} (UUID: {fov_uuid}). "
-            f"Center location: ML={center_mlapdv[0]:.1f}um, "
-            f"AP={center_mlapdv[1]:.1f}um, DV={center_mlapdv[2]:.1f}um. "
-            f"Image dimensions: {dimensions[0]}x{dimensions[1]} pixels."
-        )
-        imaging_plane["imaging_rate"] = imaging_rate
-        imaging_plane["location"] = f"Brain region ID {brain_region_id} (Allen CCF 2017)"
-        imaging_plane["origin_coords"] = origin_coords
-        imaging_plane["grid_spacing"] = grid_spacing
-        imaging_plane["device"] = device_metadata["name"]
-
-        ophys_metadata["Ophys"]["ImagingPlane"].append(imaging_plane)
-
-        # Create TwoPhotonSeries entry for this FOV
-        two_photon_series = two_photon_series_template.copy()
-        two_photon_series["name"] = f"TwoPhotonSeries{camel_case_FOV_name}"
-        two_photon_series["description"] = (
-            f"The raw two-photon imaging data acquired using the mesoscope on {FOV_name} (UUID: {fov_uuid}) ."
-        )
-        two_photon_series["imaging_plane"] = f"ImagingPlane{camel_case_FOV_name}"
-
-        ophys_metadata["Ophys"]["TwoPhotonSeries"].append(two_photon_series)
-
-    return ophys_metadata
-
-
-def raw_session_to_nwb(
-    data_dir_path: Union[str, Path],
-    output_dir_path: Union[str, Path],
-    subject_id: str,
-    eid: str,
-    stub_test: bool = False,
-    overwrite: bool = False,
-):
-    """
-    Convert a raw imaging session to NWB format.
-
-    Parameters
-    ----------
-    data_dir_path : Union[str, Path]
-        Path to the directory containing the raw data.
-    output_dir_path : Union[str, Path]
-        Path to the directory where the NWB file will be saved.
-    subject_id : str
-        Subject identifier.
-    eid : str
-        Experiment identifier.
-    stub_test : bool, optional
-        If True, convert only a subset of data for testing, by default False.
-    overwrite : bool, optional
-        If True, overwrite existing NWB file, by default False.
-    """
-    data_dir_path = Path(data_dir_path)
-    output_dir_path = Path(output_dir_path)
-    if stub_test:
-        output_dir_path = output_dir_path / "nwb_stub"
-    output_dir_path.mkdir(parents=True, exist_ok=True)
-    nwbfile_path = output_dir_path / f"sub-{subject_id}_ses-{eid}.nwb"
-
-    source_data = dict()
+    data_interfaces = dict()
     conversion_options = dict()
+    interface_kwargs = dict(one=one, session=eid)
 
     # Add raw imaging data
-    raw_imaging_folder = data_dir_path / "raw_imaging_data_00"
-    raw_imaging_metadata_path = raw_imaging_folder / "_ibl_rawImagingData.meta.json"
-    with open(raw_imaging_metadata_path, "r") as f:
-        raw_metadata = json.load(f)
-    num_planes = len(raw_metadata["FOV"])
-    FOV_names = [f"FOV_{i:02d}" for i in range(num_planes)]
-
-    tiff_files = natsorted(raw_imaging_folder.glob(f"imaging.frames/*{subject_id}*.tif"))
-    for plane_index, FOV_name in enumerate(FOV_names[:2]):  # Limiting to first 2 FOVs for testing
-        source_data.update(
-            {
-                f"{FOV_name}RawImaging": dict(
-                    file_paths=tiff_files,
-                    plane_index=plane_index,
-                    channel_name="Channel 1",
-                    FOV_name=FOV_name,
-                )
-            }
+    raw_imaging_collections = one.list_collections(
+        eid=eid,
+        filename="*raw_imaging_data*",
+    )
+    photon_series_index = 0
+    for raw_imaging_collection in raw_imaging_collections:
+        if "reference" in raw_imaging_collection:
+            continue  # Skip reference imaging data
+        task = "Task" + raw_imaging_collection.split("raw_imaging_data_")[-1]
+        raw_imaging_folder = Path(paths["session_folder"]) / raw_imaging_collection / "imaging.frames"
+        raw_imaging_metadata_path = (
+            Path(paths["session_folder"]) / raw_imaging_collection / "_ibl_rawImagingData.meta.json"
         )
-        conversion_options.update({f"{FOV_name}RawImaging": dict(stub_test=stub_test, photon_series_index=plane_index)})
+        # TODO add function to get number of FOVs
+        with open(raw_imaging_metadata_path, "r") as f:
+            raw_metadata = json.load(f)
+            num_planes = 2 if stub_test else len(raw_metadata["FOV"])
+            FOV_names = [f"FOV_{i:02d}" for i in range(num_planes)]
 
-    converter = RawMesoscopeNWBConverter(source_data=source_data)
+        tiff_files = natsorted(raw_imaging_folder.glob(f"*.tif"))
+        for FOV_index, FOV_name in enumerate(FOV_names):  # Limiting to first 2 FOVs for testing
+            data_interfaces[f"{task}{FOV_name}RawImaging"] = IBLMesoscopeRawImagingInterface(
+                file_paths=tiff_files, plane_index=FOV_index, channel_name="Channel 1", FOV_name=FOV_name, task=task
+            )
+            conversion_options.update(
+                {f"{task}{FOV_name}RawImaging": dict(stub_test=stub_test, photon_series_index=photon_series_index)}
+            )
+            photon_series_index += 1
 
-    # Add datetime to conversion
+    # Add raw behavioral video
+    # Raw video interfaces
+    # In stub mode, only include videos if already downloaded (avoid triggering large downloads)
+    # In full mode, always include videos (they will be downloaded if needed)
+    metadata_retrieval = RawMesoscopeNWBConverter(one=one, session=eid, data_interfaces=[], verbose=False)
+    subject_id_from_metadata = metadata_retrieval.get_metadata()["Subject"]["subject_id"]
+    # Sanitize subject ID for DANDI-compliant filenames
+    subject_id_for_video_paths = sanitize_subject_id_for_dandi(subject_id_from_metadata)
+
+    # Video files should be organized alongside NWB files
+    # In stub mode: nwbfiles/stub/sub-{subject}/, in full mode: nwbfiles/full/sub-{subject}/
+    conversion_mode = "stub" if stub_test else "full"
+    video_base_path = Path(paths["output_folder"]) / conversion_mode
+
+    # Add video interfaces for cameras that have timestamps
+    # Check all camera types (left, right, body)
+    for camera_view in ["left", "right", "body"]:
+        camera_name = f"{camera_view}Camera"
+        camera_times_pattern = f"*{camera_view}Camera.times*"
+        video_filename = f"raw_video_data/_iblrig_{camera_view}Camera.raw.mp4"
+
+        # Check if camera has timestamps (required for video interface)
+        has_timestamps = bool(one.list_datasets(eid=eid, filename=camera_times_pattern))
+        if not has_timestamps:
+            continue
+
+        # Check if video dataset exists
+        has_video = bool(one.list_datasets(eid=eid, filename=video_filename))
+        if not has_video:
+            if verbose:
+                print(f"No video file found for {camera_view}Camera - skipping")
+            continue
+
+        # In stub mode, check if video is already in cache (avoid triggering downloads)
+        if stub_test:
+            # Check cache without downloading - construct expected path from eid2path
+            session_path = one.eid2path(eid)
+            if session_path is None:
+                # Session path not in cache, skip video
+                if verbose:
+                    print(f"✗ Stub mode: {camera_view}Camera video not in cache - skipping to avoid download")
+                continue
+
+            expected_video_path = session_path / video_filename
+            video_in_cache = expected_video_path.exists()
+
+            if not video_in_cache:
+                if verbose:
+                    print(f"✗ Stub mode: {camera_view}Camera video not in cache - skipping to avoid download")
+                continue
+
+            if verbose:
+                print(f"✓ Stub mode: Including {camera_view}Camera video (already in cache)")
+        else:
+            if verbose:
+                print(f"Adding {camera_view}Camera video interface")
+
+        # Add video interface
+        data_interfaces[f"{camera_name}RawVideoInterface"] = RawVideoInterface(
+            nwbfiles_folder_path=video_base_path,
+            subject_id=subject_id_for_video_paths,
+            one=one,
+            session=eid,
+            camera_name=camera_view,
+        )
+    interface_creation_time = time.time() - interface_creation_start
+    if verbose:
+        print(f"Data interfaces created in {interface_creation_time:.2f}s")
+
+    # ========================================================================
+    # STEP 2: Create converter
+    # ========================================================================
+    converter = RawMesoscopeNWBConverter(one=one, session=eid, data_interfaces=data_interfaces)
+
+    # ========================================================================
+    # STEP 3: Get metadata
+    # ========================================================================
     metadata = converter.get_metadata()
-    date = datetime.datetime(year=2020, month=1, day=1, tzinfo=ZoneInfo("US/Eastern"))
-    metadata["NWBFile"]["session_start_time"] = date
 
     # Update default metadata with the editable in the corresponding yaml file
     editable_metadata_path = Path(__file__).parent.parent / "_metadata" / "mesoscope_general_metadata.yaml"
     editable_metadata = load_dict_from_file(editable_metadata_path)
     metadata = dict_deep_update(metadata, editable_metadata)
 
-    # # Update ophys metadata
-    ophys_metadata_path = Path(__file__).parent.parent / "_metadata" / "mesoscope_raw_ophys_metadata.yaml"
-    updated_ophys_metadata = update_raw_ophys_metadata(
-        ophys_metadata_path=ophys_metadata_path,
-        raw_imaging_metadata_path=raw_imaging_metadata_path,
-        FOV_names=FOV_names,
-    )
-    metadata = dict_deep_update(metadata, updated_ophys_metadata)
+    # ========================================================================
+    # STEP 4: Write NWB file
+    # ========================================================================
+    overwrite = False
+    if nwbfile_path.exists() and not append_on_disk_nwbfile:
+        overwrite = True
 
-    metadata["Subject"]["subject_id"] = subject_id
+    subject_metadata_for_ndx = metadata.pop("Subject")
+    ibl_subject = IblSubject(**subject_metadata_for_ndx)
 
-    # Run conversion
+    # TODO: Solve this for append_on_disk_nwbfile=True case
+    nwbfile = NWBFile(**metadata["NWBFile"])
+    nwbfile.subject = ibl_subject
+
+    if verbose:
+        print(f"Writing to NWB '{nwbfile_path}' ...")
+    write_start = time.time()
+
     converter.run_conversion(
         metadata=metadata,
+        nwbfile=nwbfile,
         nwbfile_path=nwbfile_path,
         conversion_options=conversion_options,
+        append_on_disk_nwbfile=append_on_disk_nwbfile,
         overwrite=overwrite,
+    )
+
+    write_time = time.time() - write_start
+
+    # Get NWB file size
+    nwb_size_bytes = nwbfile_path.stat().st_size
+    nwb_size_gb = nwb_size_bytes / (1024**3)
+
+    if verbose:
+        total_time_seconds = time.time() - start_time
+        total_time_hours = total_time_seconds / 3600
+        print(f"NWB file written in {write_time:.2f}s")
+        print(f"RAW NWB file size: {nwb_size_gb:.2f} GB ({nwb_size_bytes:,} bytes)")
+        print(f"Write speed: {nwb_size_gb / (write_time / 3600):.2f} GB/hour")
+        print(f"RAW conversion total time: {total_time_seconds:.2f}s")
+        print(f"RAW conversion total time: {total_time_hours:.2f} hours")
+        print(f"RAW conversion completed: {nwbfile_path}")
+        print(f"RAW NWB saved to: {nwbfile_path}")
+
+    return {
+        "nwbfile_path": nwbfile_path,
+        "nwb_size_bytes": nwb_size_bytes,
+        "nwb_size_gb": nwb_size_gb,
+        "write_time": write_time,
+    }
+
+
+if __name__ == "__main__":
+    # Example usage
+    convert_raw_session(
+        eid="5ce2e17e-8471-42d4-8a16-21949710b328",
+        one=ONE(),  # base_url="https://alyx.internationalbrainlab.org"
+        stub_test=True,
+        base_path=Path("E:/IBL-data-share"),
+        append_on_disk_nwbfile=False,
+        verbose=True,
     )

@@ -1,5 +1,3 @@
-from .nwbconverter import ProcessedMesoscopeNWBConverter
+from .nwbconverter import ProcessedMesoscopeNWBConverter, RawMesoscopeNWBConverter
 
-# from .nwbconverter import RawMesoscopeNWBConverter
-
-__all__ = ["ProcessedMesoscopeNWBConverter"]  # , "RawMesoscopeNWBConverter"]
+__all__ = ["ProcessedMesoscopeNWBConverter", "RawMesoscopeNWBConverter"]

@@ -10,17 +10,14 @@ Ophys:
 
   ImagingPlane:
     - name: ImagingPlane # Unique name for each FOV, e.g., ImagingPlaneFOV00, ImagingPlaneFOV01, etc.
-      description: "Field of view <fov_idx> (UUID: <fov_uuid>). Center location: ML=<center_mlapdv[0]:.1f>um, AP=<center_mlapdv[1]:.1f>um, DV=<center_mlapdv[2]:.1f>um. Allen CCF 2017 brain region ID: <brain_region_id>. Image dimensions: <dimensions[0]>x<dimensions[1]> pixels."
+      description: "Field of view <fov_idx> (UUID: <fov_uuid>). Image dimensions: <dimensions[0]>x<dimensions[1]> pixels."
       excitation_lambda: 920.0 # To be confirmed
       imaging_rate: 5.07
       location: <brain region ID>
-      reference_frame: "Stereotactic coordinates relative to bregma. ML (medial-lateral): positive is lateral (away from midline). AP (anterior-posterior): positive is anterior, negative is posterior. DV (dorsal-ventral): negative is ventral (deeper). Coordinates from Allen Common Coordinate Framework (CCF) 2017."
-      origin_coords: <origin_coords>
-      origin_coords_unit: meters
       grid_spacing: <grid_spacing>
       grid_spacing_unit: meters
       indicator: GCaMP6s # actually depend on subject --> they extract from subject genotype: https://github.com/int-brain-lab/ibllib/blob/78e82df8a51de0be880ee4076d2bb093bbc1d2c1/ibllib/pipes/mesoscope_tasks.py#L536-L555
       optical_channel:
         - name: OpticalChannel
           emission_lambda: 510.0 # To be confirmed
-          description: GCaMP6f emission.
+          description: GCaMP6s emission.
