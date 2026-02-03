@@ -1,90 +1,194 @@
 from copy import deepcopy
+from pathlib import Path
 
 from ibl_to_nwb.datainterfaces._base_ibl_interface import BaseIBLDataInterface
 from neuroconv.datainterfaces.ophys.basesegmentationextractorinterface import (
     BaseSegmentationExtractorInterface,
 )
-from neuroconv.utils import DeepDict
-from pydantic import DirectoryPath, validate_call
+from neuroconv.utils import DeepDict, dict_deep_update, load_dict_from_file
+from one.api import ONE
 from pynwb import NWBFile
+
+from ibl_mesoscope_to_nwb.mesoscope2025.utils.FOVs import get_available_FOV_names
 
 from ._meso_segmentation_extractor import MesoscopeSegmentationExtractor
 
 
 class MesoscopeSegmentationInterface(BaseIBLDataInterface, BaseSegmentationExtractorInterface):
-    """Interface for Meso segmentation data."""
+    """Interface for Mesoscope segmentation data."""
 
-    Extractor = MesoscopeSegmentationExtractor
-    display_name = "Meso Segmentation"
-    associated_suffixes = (".npy",)
-    info = "Interface for Meso segmentation."
+    display_name = "Mesoscope Segmentation"
+    info = "Interface for Mesoscope segmentation."
+    REVISION: str | None = None
 
     @classmethod
     def get_extractor_class(cls):
         return MesoscopeSegmentationExtractor
 
+    def __init__(self, one: ONE, session: str, FOV_name: str, verbose: bool = True):
+        self.one = one
+        self.session = session
+        self.revision = self.REVISION
+        # Check if task exists
+        FOV_names = get_available_FOV_names(one, session)
+        if FOV_name not in FOV_names:
+            raise ValueError(
+                f"FOV_name '{FOV_name}' not found for session '{session}'. " f"Available FOV_names: {FOV_names}.'"
+            )
+        super().__init__(one=one, session=session, FOV_name=FOV_name)
+        self.FOV_name = FOV_name
+        self.FOV_index = int(FOV_name.replace("FOV_", ""))
+        self.plane_segmentation_name = FOV_name.replace("FOV_", "PlaneSegmentationFOV")
+        self.verbose = verbose
+
     @classmethod
-    def get_source_schema(cls) -> dict:
+    def get_data_requirements(cls, FOV_name: str) -> dict:
         """
-        Get the source schema for the Meso segmentation interface.
+        Declare exact data files required for anatomical localization.
+
+        Note: This interface derives anatomical localization from specific numpy files.
 
         Returns
         -------
         dict
-            The schema dictionary containing input parameters and descriptions
-            for initializing the Meso segmentation interface.
+            Data requirements with exact file paths
         """
-        schema = super().get_source_schema()
-        schema["properties"]["folder_path"][
-            "description"
-        ] = "Path to the folder containing Meso segmentation data. Should contain 'FOV_#' subfolder(s)."
-        schema["properties"]["FOV_name"][
-            "description"
-        ] = "The name of the FOV to load. This interface only loads one FOV at a time. Use the full name, e.g. 'FOV_00'. If this value is omitted, the first FOV found will be loaded."
-
-        return schema
+        return {
+            "exact_files_options": {
+                "standard": [
+                    f"alf/{FOV_name}/mpci.times.npy",
+                    f"alf/{FOV_name}/mpci.ROIActivityF.npy",
+                    f"alf/{FOV_name}/mpci.ROIActivityDeconvolved.npy",
+                    f"alf/{FOV_name}/mpciROIs.mpciROITypes.npy",
+                    f"alf/{FOV_name}/mpciROIs.masks.sparse_npz",
+                    f"alf/{FOV_name}/mpciROIs.cellClassifier.npy",
+                    f"alf/{FOV_name}/mpciROIs.stackPos.npy",
+                    # f"alf/{FOV_name}/mpci.ROIActivityNeuropilF.npy", # NOT REQUIRED
+                    # f"alf/{FOV_name}/mpciROIs.neuropilMasks.sparse_npz", # NOT REQUIRED
+                    f"alf/{FOV_name}/mpciMeanImage.images.npy",
+                    f"alf/{FOV_name}/mpciROIs.uuids.csv",
+                ]
+            },
+        }
 
     @classmethod
-    def get_available_planes(cls, folder_path: DirectoryPath) -> list[str]:
+    def check_availability(cls, one: ONE, eid: str, **kwargs) -> dict:
         """
-        Get the available planes in the Meso segmentation folder.
+        Check if required data is available for a specific session.
+
+        This method NEVER downloads data - it only checks if files exist
+        using one.list_datasets(). It's designed to be fast and read-only,
+        suitable for scanning many sessions.
+
+        NO try-except patterns that hide failures. If checking fails,
+        let the exception propagate.
+
+        NOTE: Does NOT use revision filtering in check_availability(). Queries for latest
+        version of all files regardless of revision tags. This matches the smart fallback
+        behavior of load_object() and download methods, which try requested revision first
+        but fall back to latest if not found.
 
         Parameters
         ----------
-        folder_path : DirectoryPath
-            Path to the folder containing Meso segmentation data.
+        one : ONE
+            ONE API instance
+        eid : str
+            Session ID (experiment ID)
+        **kwargs : dict
+            Interface-specific parameters
 
         Returns
         -------
-        list
-            List of available plane names in the dataset.
+        dict
+            {
+                "available": bool,              # Overall availability
+                "missing_required": [str],      # Missing required files
+                "found_files": [str],           # Files that exist
+                "alternative_used": str,        # Which alternative was found (if applicable)
+                "requirements": dict,           # Copy of get_data_requirements()
+            }
+
+        Examples
+        --------
+        >>> result = WheelInterface.check_availability(one, eid)
+        >>> if not result["available"]:
+        >>>     print(f"Missing: {result['missing_required']}")
         """
-        return MesoscopeSegmentationExtractor.get_available_planes(folder_path=folder_path)
+        # STEP 1: Check quality (QC filtering)
+        quality_result = cls.check_quality(one=one, eid=eid, **kwargs)
 
-    @validate_call
-    def __init__(
-        self,
-        folder_path: DirectoryPath,
-        FOV_name: str | None = None,
-        verbose: bool = False,
-    ):
-        """
+        if quality_result is not None:
+            # If quality check explicitly rejects, return immediately
+            if quality_result.get("available") is False:
+                return quality_result
+            # Otherwise, save extra fields to merge later
+            extra_fields = quality_result
+        else:
+            extra_fields = {}
 
-        Parameters
-        ----------
-        folder_path : DirectoryPath
-            Path to the folder containing Meso segmentation data. Should contain 'plane#' sub-folders.
-        FOV_name: str, optional
-            The name of the plane to load. This interface only loads one plane at a time.
-            If this value is omitted, the first plane found will be loaded.
-            To determine what planes are available, use ``MesoscopeSegmentationInterface.get_available_planes(folder_path)``.
-        """
+        # STEP 2: Check file existence
+        requirements = cls.get_data_requirements(**kwargs)
 
-        super().__init__(folder_path=folder_path, FOV_name=FOV_name)
+        # Query without revision filtering to get latest version of ALL files
+        # This includes both revision-tagged files (spike sorting) and untagged files (behavioral)
+        # The unfiltered query returns the superset of what any revision-specific query would return
+        available_datasets = one.list_datasets(eid)
+        available_files = set(str(d) for d in available_datasets)
 
-        self.camel_cased_FOV_name = self.segmentation_extractor.FOV_name.replace("_", "")
-        self.plane_segmentation_name = f"PlaneSegmentation{self.camel_cased_FOV_name}"
-        self.verbose = verbose
+        missing_required = []
+        found_files = []
+        alternative_used = None
+
+        # Check file options - this is now REQUIRED (not optional)
+        # Every interface must define exact_files_options dict
+        exact_files_options = requirements.get("exact_files_options", {})
+
+        if not exact_files_options:
+            raise ValueError(
+                f"{cls.__name__}.get_data_requirements() must return 'exact_files_options' dict. "
+                f"Even for single-format interfaces, use: {{'standard': ['file1.npy', 'file2.npy']}}"
+            )
+
+        # Check each named option - ANY complete option = available
+        for option_name, option_files in exact_files_options.items():
+            all_files_found = True
+
+            for exact_file in option_files:
+                # Handle wildcards
+                if "*" in exact_file:
+                    import re
+
+                    pattern = re.escape(exact_file).replace(r"\*", ".*")
+                    found = any(re.search(pattern, avail) for avail in available_files)
+                else:
+                    found = any(exact_file in avail for avail in available_files)
+
+                if not found:
+                    all_files_found = False
+                    break  # This option is incomplete
+
+            # If this option has all files, mark as available
+            if all_files_found:
+                found_files.extend(option_files)
+                alternative_used = option_name  # Report which option was found
+                break  # Found one complete option, that's enough
+
+        # If no options were complete, mark the first option as missing for reporting
+        if not alternative_used:
+            first_option_name = next(iter(exact_files_options.keys()))
+            missing_required.extend(exact_files_options[first_option_name])
+
+        # STEP 3: Build result and merge extra fields from quality check
+        result = {
+            "available": len(missing_required) == 0,
+            "missing_required": missing_required,
+            "found_files": found_files,
+            "alternative_used": alternative_used,
+            "requirements": requirements,
+        }
+        result.update(extra_fields)
+
+        return result
 
     def get_metadata(self) -> DeepDict:
         """
@@ -97,47 +201,118 @@ class MesoscopeSegmentationInterface(BaseIBLDataInterface, BaseSegmentationExtra
             fluorescence data, and segmentation images.
         """
         metadata = super().get_metadata()
-        metadata_copy = deepcopy(metadata)
+        metadata_copy = deepcopy(metadata)  # To avoid modifying the parent class's metadata
 
-        # No need to update the metadata links for the default plane segmentation name
-        default_plane_segmentation_name = metadata_copy["Ophys"]["ImageSegmentation"]["plane_segmentations"][0]["name"]
-        if self.plane_segmentation_name == default_plane_segmentation_name:
-            return metadata_copy
+        metadata_copy["Ophys"]["ImagingPlane"][0]["optical_channel"].pop()  # Remove default optical channel
 
-        plane_segmentation_metadata = metadata_copy["Ophys"]["ImageSegmentation"]["plane_segmentations"][0]
-        imaging_plane_metadata = metadata_copy["Ophys"]["ImagingPlane"][0]
-        fluorescence_metadata = metadata_copy["Ophys"]["Fluorescence"]
-        segmentation_images_metadata = metadata_copy["Ophys"]["SegmentationImages"]
-
-        default_plane_segmentation_name = plane_segmentation_metadata["name"]
-        imaging_plane_name = f"ImagingPlane{self.camel_cased_FOV_name}"
-
-        plane_segmentation_metadata.update(
-            name=self.plane_segmentation_name,
-            imaging_plane=imaging_plane_name,
+        # Use single source of truth when updating metadata
+        ophys_metadata = load_dict_from_file(
+            file_path=Path(__file__).parent.parent / "_metadata" / "mesoscope_processed_ophys_metadata.yaml"
         )
+        raw_metadata = self.one.load_object(self.session, obj="_ibl_rawImagingData", collection="raw_imaging_data_00")
+        raw_metadata = raw_metadata["meta"]
+        fov = raw_metadata["FOV"][self.FOV_index]
 
-        imaging_plane_metadata.update(name=imaging_plane_name)
-        imaging_plane_metadata["optical_channel"].pop()  # Remove default optical channel
+        suffix = self.FOV_name.replace("_", "")
 
-        fluorescence_metadata_per_plane = fluorescence_metadata.pop(default_plane_segmentation_name)
-        # override the default name of the plane segmentation
-        fluorescence_metadata[self.plane_segmentation_name] = fluorescence_metadata_per_plane
-        trace_names = [
-            property_name for property_name in fluorescence_metadata_per_plane.keys() if property_name != "name"
-        ]
-        for trace_name in trace_names:
-            fluorescence_metadata_per_plane[trace_name].update(
-                name=trace_name.upper() + f"ROIResponseSeries{self.camel_cased_FOV_name}"
+        # Get the template structures (single entries from YAML)
+        imaging_plane_template = ophys_metadata["Ophys"]["ImagingPlane"][0]
+        plane_seg_template = ophys_metadata["Ophys"]["ImageSegmentation"]["plane_segmentations"][0]
+        two_photon_series_template = ophys_metadata["Ophys"]["TwoPhotonSeries"][0]
+        fluorescence_template = ophys_metadata["Ophys"]["Fluorescence"]
+
+        # Get global imaging rate
+        imaging_rate = raw_metadata["scanImageParams"]["hRoiManager"]["scanFrameRate"]
+        scan_line_rate = raw_metadata["scanImageParams"]["hRoiManager"]["linePeriod"] ** -1
+
+        # Get device information (assumed single device)
+        device_metadata = ophys_metadata["Ophys"]["Device"][0]
+
+        # Extract FOV-specific metadata
+        fov_uuid = fov["roiUUID"]
+
+        dimensions = fov["nXnYnZ"]  # [width, height, depth] in pixels
+
+        x_pixel_size = raw_metadata["rawScanImageMeta"]["XResolution"]  # in micrometers
+        y_pixel_size = raw_metadata["rawScanImageMeta"]["YResolution"]  # in micrometers
+
+        grid_spacing = [x_pixel_size * 1e-6, y_pixel_size * 1e-6]  # x spacing in meters  # y spacing in meters
+
+        # Create ImagingPlane entry for this FOV
+        imaging_plane = imaging_plane_template.copy()
+        imaging_plane["name"] = f"ImagingPlane{suffix}"
+        imaging_plane["description"] = (
+            f"Field of view {self.FOV_index} (UUID: {fov_uuid}). "
+            f"Image dimensions: {dimensions[0]}x{dimensions[1]} pixels."
+        )
+        imaging_plane["imaging_rate"] = imaging_rate
+        if "brainLocationIds" in fov:
+            brain_region_id = fov["brainLocationIds"]["center"]
+            imaging_plane["location"] = (
+                f"Brain region ID {brain_region_id} (Allen CCF 2017)" if brain_region_id is not None else "Unknown"
             )
+        imaging_plane["grid_spacing"] = grid_spacing
+        imaging_plane["device"] = device_metadata["name"]
 
-        segmentation_images_metadata_per_plane = segmentation_images_metadata.pop(default_plane_segmentation_name)
-        segmentation_images_metadata[self.plane_segmentation_name] = segmentation_images_metadata_per_plane
-        segmentation_images_metadata[self.plane_segmentation_name].update(
-            correlation=dict(name=f"CorrelationImage{self.camel_cased_FOV_name}"),
-            mean=dict(name=f"MeanImage{self.camel_cased_FOV_name}"),
+        # Create TwoPhotonSeries entry for this FOV
+        two_photon_series = two_photon_series_template.copy()
+        two_photon_series["name"] = f"MotionCorrectedTwoPhotonSeries{suffix}"
+        two_photon_series["description"] = (
+            f"The motion corrected two-photon imaging data acquired using the mesoscope on {self.FOV_name} (UUID: {fov_uuid})."
         )
+        two_photon_series["imaging_plane"] = f"ImagingPlane{suffix}"
+        two_photon_series["scan_line_rate"] = scan_line_rate
 
+        # Create PlaneSegmentation entry for this FOV
+        plane_seg = plane_seg_template.copy()
+        plane_seg_key = self.plane_segmentation_name
+        plane_seg["description"] = f"Spatial components of segmented ROIs for {self.FOV_name} (UUID: {fov_uuid})."
+        plane_seg["imaging_plane"] = f"ImagingPlane{suffix}"
+
+        # Create Fluorescence entries for this FOV
+        ophys_metadata["Ophys"]["Fluorescence"][plane_seg_key] = {
+            "raw": {
+                "name": f"RawROIResponseSeries{suffix}",
+                "description": f"The raw GCaMP fluorescence traces (temporal components) of segmented ROIs for {self.FOV_name} (UUID: {fov_uuid}).",
+                "unit": fluorescence_template["plane_segmentation"]["raw"]["unit"],
+            },
+            "deconvolved": {
+                "name": f"DeconvolvedROIResponseSeries{suffix}",
+                "description": f"The deconvolved activity traces (temporal components) of segmented ROIs for {self.FOV_name} (UUID: {fov_uuid}).",
+                "unit": fluorescence_template["plane_segmentation"]["deconvolved"]["unit"],
+            },
+            "neuropil": {
+                "name": f"NeuropilResponseSeries{suffix}",
+                "description": f"The neuropil signals (temporal components) for {self.FOV_name} (UUID: {fov_uuid}).",
+                "unit": fluorescence_template["plane_segmentation"]["neuropil"]["unit"],
+            },
+        }
+
+        # Create SegmentationImages entries for this FOV
+        ophys_metadata["Ophys"]["SegmentationImages"][plane_seg_key] = {
+            "mean": {
+                "name": f"MeanImage{suffix}",
+                "description": f"The mean image for {self.FOV_name} (UUID: {fov_uuid}).",
+            }
+        }
+
+        # Create Device entry
+        metadata_copy["Ophys"]["Device"][0] = device_metadata
+        metadata_copy["Ophys"]["ImagingPlane"][0] = dict_deep_update(
+            metadata_copy["Ophys"]["ImagingPlane"][0], imaging_plane
+        )
+        metadata_copy["Ophys"]["TwoPhotonSeries"][0] = dict_deep_update(
+            metadata_copy["Ophys"]["TwoPhotonSeries"][0], two_photon_series
+        )
+        metadata_copy["Ophys"]["ImageSegmentation"]["plane_segmentations"][0] = dict_deep_update(
+            metadata_copy["Ophys"]["ImageSegmentation"]["plane_segmentations"][0], plane_seg
+        )
+        metadata_copy["Ophys"]["Fluorescence"] = dict_deep_update(
+            metadata_copy["Ophys"]["Fluorescence"], ophys_metadata["Ophys"]["Fluorescence"]
+        )
+        metadata_copy["Ophys"]["SegmentationImages"] = dict_deep_update(
+            metadata_copy["Ophys"]["SegmentationImages"], ophys_metadata["Ophys"]["SegmentationImages"]
+        )
         return metadata_copy
 
     def add_to_nwbfile(
