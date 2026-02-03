@@ -3,15 +3,13 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Literal, Optional
 
-import numpy as np
+from ibl_to_nwb.datainterfaces._base_ibl_interface import BaseIBLDataInterface
 from neuroconv.datainterfaces.ophys.baseimagingextractorinterface import (
     BaseImagingExtractorInterface,
 )
 from neuroconv.utils import DeepDict, dict_deep_update, load_dict_from_file
 from pydantic import FilePath
 from pynwb import NWBFile
-
-from ibl_to_nwb.datainterfaces._base_ibl_interface import BaseIBLDataInterface
 
 from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
     MesoscopeRawImagingExtractor,
@@ -24,6 +22,10 @@ class MesoscopeRawImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInt
     display_name = "IBL Raw Mesoscope Imaging"
     associated_suffixes = ".tif"
     info = "Interface for IBL Raw Mesoscope imaging data."
+
+    @classmethod
+    def get_extractor_class(cls):
+        return MesoscopeRawImagingExtractor
 
     def __init__(
         self,
@@ -79,11 +81,8 @@ class MesoscopeRawImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInt
         self.imaging_extractor.set_times(times=times)
 
         self.FOV_name = FOV_name
-        self.FOV_index = plane_index if plane_index is not None else 0
+        self.FOV_index = plane_index if plane_index is not None else int(FOV_name.replace("FOV_", ""))
         self.task = task
-
-    def get_extractor_class(self):
-        return MesoscopeRawImagingExtractor
 
     def get_metadata(self) -> DeepDict:
         """

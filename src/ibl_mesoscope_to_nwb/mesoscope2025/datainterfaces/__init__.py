@@ -1,5 +1,6 @@
 from ._meso_anatomical_localization_interfaces import (
-    MesoscopeAnatomicalLocalizationInterface,
+    MesoscopeROIAnatomicalLocalizationInterface,
+    MesoscopeImageAnatomicalLocalizationInterface,
 )
 from ._meso_mc_imaging_extractor import (
     MesoscopeMotionCorrectedImagingExtractor,
@@ -24,7 +25,8 @@ __all__ = [
     "MesoscopeSegmentationInterface",
     "MesoscopeMotionCorrectedImagingExtractor",
     "MesoscopeMotionCorrectedImagingInterface",
-    "MesoscopeAnatomicalLocalizationInterface",
+    "MesoscopeROIAnatomicalLocalizationInterface",
+    "MesoscopeImageAnatomicalLocalizationInterface",
     "MesoscopeWheelKinematicsInterface",
     "MesoscopeWheelMovementsInterface",
     "MesoscopeWheelPositionInterface",
