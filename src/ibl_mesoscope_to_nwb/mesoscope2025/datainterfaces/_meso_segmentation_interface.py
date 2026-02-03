@@ -218,12 +218,10 @@ class MesoscopeSegmentationInterface(BaseIBLDataInterface, BaseSegmentationExtra
         # Get the template structures (single entries from YAML)
         imaging_plane_template = ophys_metadata["Ophys"]["ImagingPlane"][0]
         plane_seg_template = ophys_metadata["Ophys"]["ImageSegmentation"]["plane_segmentations"][0]
-        two_photon_series_template = ophys_metadata["Ophys"]["TwoPhotonSeries"][0]
         fluorescence_template = ophys_metadata["Ophys"]["Fluorescence"]
 
         # Get global imaging rate
         imaging_rate = raw_metadata["scanImageParams"]["hRoiManager"]["scanFrameRate"]
-        scan_line_rate = raw_metadata["scanImageParams"]["hRoiManager"]["linePeriod"] ** -1
 
         # Get device information (assumed single device)
         device_metadata = ophys_metadata["Ophys"]["Device"][0]
@@ -253,15 +251,6 @@ class MesoscopeSegmentationInterface(BaseIBLDataInterface, BaseSegmentationExtra
             )
         imaging_plane["grid_spacing"] = grid_spacing
         imaging_plane["device"] = device_metadata["name"]
-
-        # Create TwoPhotonSeries entry for this FOV
-        two_photon_series = two_photon_series_template.copy()
-        two_photon_series["name"] = f"MotionCorrectedTwoPhotonSeries{suffix}"
-        two_photon_series["description"] = (
-            f"The motion corrected two-photon imaging data acquired using the mesoscope on {self.FOV_name} (UUID: {fov_uuid})."
-        )
-        two_photon_series["imaging_plane"] = f"ImagingPlane{suffix}"
-        two_photon_series["scan_line_rate"] = scan_line_rate
 
         # Create PlaneSegmentation entry for this FOV
         plane_seg = plane_seg_template.copy()
@@ -300,9 +289,6 @@ class MesoscopeSegmentationInterface(BaseIBLDataInterface, BaseSegmentationExtra
         metadata_copy["Ophys"]["Device"][0] = device_metadata
         metadata_copy["Ophys"]["ImagingPlane"][0] = dict_deep_update(
             metadata_copy["Ophys"]["ImagingPlane"][0], imaging_plane
-        )
-        metadata_copy["Ophys"]["TwoPhotonSeries"][0] = dict_deep_update(
-            metadata_copy["Ophys"]["TwoPhotonSeries"][0], two_photon_series
         )
         metadata_copy["Ophys"]["ImageSegmentation"]["plane_segmentations"][0] = dict_deep_update(
             metadata_copy["Ophys"]["ImageSegmentation"]["plane_segmentations"][0], plane_seg
