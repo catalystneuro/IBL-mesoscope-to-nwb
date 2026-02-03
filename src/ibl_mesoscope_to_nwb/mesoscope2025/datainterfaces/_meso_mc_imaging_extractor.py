@@ -10,93 +10,41 @@ class MesoscopeMotionCorrectedImagingExtractor(ImagingExtractor):
     """A segmentation extractor for IBL Motion Corrected Mesoscopic imaging data (.bin)."""
 
     extractor_name = "MesoscopeMotionCorrectedImagingExtractor"
+    REVISION: str | None = None
 
-    @classmethod
-    def get_available_planes(cls, folder_path: DirectoryPath) -> list[str]:
-        """Get the available plane names from the folder produced by IBL Mesoscope.
+    def __init__(self, one: ONE, session: str, FOV_name: str):
+        self.one = one
+        self.session = session
+        self.revision = self.REVISION
+        FOV_index = int(FOV_name.replace("FOV_", ""))
+        self.plane_name = f"plane{FOV_index}"
+        super().__init__()
 
-        Parameters
-        ----------
-        folder_path : PathType
-            Path to IBL Mesoscope output path.
+        self._channel_names = ["OpticalChannel"]  # TODO update for dual plane
 
-        Returns
-        -------
-        FOV_names: list
-            List of plane names.
-        """
-        from natsort import natsorted
-
-        folder_path = Path(folder_path)
-        prefix = "plane"
-        plane_paths = natsorted(folder_path.glob(pattern=prefix + "*"))
-        assert len(plane_paths), f"No planes found in '{folder_path}'."
-        FOV_names = [plane_path.stem for plane_path in plane_paths]
-        return FOV_names
-
-    def __init__(self, file_path: str):
-        """Initialize a MesoscopeMotionCorrectedImagingExtractor instance.
-
-        Main class for extracting imaging data from .bin format.
-
-        Parameters
-        ----------
-        file_path: str or Path
-            Path to the .bin file containing imaging data.
-            Expected path format: .../suite2p/planeX/imaging.frames_motionRegistered.bin
-        """
-        super().__init__(file_path=file_path)
-        self._file_path = Path(file_path)
-        self._channel_names = ["green_channel"]
-
-        # Validate file path structure
-        if not self._file_path.name == "imaging.frames_motionRegistered.bin":
-            raise ValueError(f"Expected file named 'imaging.frames_motionRegistered.bin', got '{self._file_path.name}'")
-
-        # Extract plane number from path (e.g., plane0 -> 0)
-        plane_folder = self._file_path.parent.name
-        if not plane_folder.startswith("plane"):
-            raise ValueError(f"Expected parent folder to start with 'plane', got '{plane_folder}'")
-
-        plane_number = int(plane_folder.replace("plane", ""))
-
-        # Find session folder (2 levels up from suite2p/planeX/)
-        session_folder = self._file_path.parent.parent.parent
-
-        # Construct path to corresponding FOV folder
-        FOV_name = f"FOV_{plane_number:02d}"
-        self._alf_folder = session_folder / "alf" / FOV_name
-
-        if not self._alf_folder.exists():
-            raise FileNotFoundError(f"ALF folder not found: {self._alf_folder}")
-
-        # Load timestamps to determine number of frames
-        timestamps_file = self._alf_folder / "mpci.times.npy"
-        if not timestamps_file.exists():
-            raise FileNotFoundError(f"Timestamps file not found: {timestamps_file}")
-
-        self._timestamps = np.load(timestamps_file)
+        self._timestamps = self.one.load_dataset(id=self.session, dataset="mpci.times", collection=f"alf/{FOV_name}")
         self._num_samples = len(self._timestamps)
 
-        # Load mean image to get frame dimensions
-        mean_image_file = self._alf_folder / "mpciMeanImage.images.npy"
-        if not mean_image_file.exists():
-            raise FileNotFoundError(f"Mean image file not found: {mean_image_file}")
-
-        mean_image = np.load(mean_image_file)
-        self._image_shape = mean_image.shape  # Should be (height, width)
+        image_mean = self.one.load_dataset(
+            id=self.session, dataset="mpciMeanImage.images", collection=f"alf/{FOV_name}"
+        )
+        self._frame_shape = (image_mean.shape[0], image_mean.shape[1])
 
         # Data type for binary file (Suite2p uses int16)
         self._dtype = np.dtype("int16")
 
         # Verify binary file size matches expected dimensions
-        expected_size = self._num_samples * self._image_shape[0] * self._image_shape[1] * self._dtype.itemsize
+        self._file_path = self.one.load_dataset(
+            self.session, dataset="imaging.frames_motionRegistered", collection=f"suite2p/{self.plane_name}"
+        )
+        # TODO add correction fro "suite2"
+        expected_size = self._num_samples * self._frame_shape[0] * self._frame_shape[1] * self._dtype.itemsize
         actual_size = self._file_path.stat().st_size
         if actual_size != expected_size:
             raise ValueError(
                 f"Binary file size mismatch. Expected {expected_size} bytes, got {actual_size} bytes. "
-                f"Check dimensions: frames={self._num_samples}, height={self._image_shape[0]}, "
-                f"width={self._image_shape[1]}, dtype={self._dtype}"
+                f"Check dimensions: frames={self._num_samples}, height={self._frame_shape[0]}, "
+                f"width={self._frame_shape[1]}, dtype={self._dtype}"
             )
 
     def get_sampling_frequency(self) -> None:
@@ -117,7 +65,7 @@ class MesoscopeMotionCorrectedImagingExtractor(ImagingExtractor):
         image_shape: tuple
             Shape of the video frame (num_rows, num_columns).
         """
-        return self._image_shape
+        return self._frame_shape
 
     def get_num_samples(self) -> int:
         """Get the number of samples in the video.
@@ -195,7 +143,7 @@ class MesoscopeMotionCorrectedImagingExtractor(ImagingExtractor):
             raise ValueError(f"end_sample {end_sample} out of range ({start_sample}, {self._num_samples}]")
 
         num_frames_to_read = end_sample - start_sample
-        height, width = self._image_shape
+        height, width = self._frame_shape
 
         # Memory-map the binary file for efficient reading
         # Suite2p saves data as (num_frames, height, width) in C order (row-major)
