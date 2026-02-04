@@ -1,8 +1,7 @@
-from pathlib import Path
 from typing import Optional, Tuple
 
 import numpy as np
-from pydantic import DirectoryPath
+from one.api import ONE
 from roiextractors import ImagingExtractor
 
 
