@@ -11,7 +11,7 @@ from one.api import ONE
 from pynwb import NWBFile
 from pynwb.ophys import ImageSegmentation
 
-from ibl_mesoscope_to_nwb.mesoscope2025.utils import get_available_FOV_names
+from ibl_mesoscope_to_nwb.mesoscope2025.utils import get_FOV_names_from_alf_collections
 
 
 class MesoscopeROIAnatomicalLocalizationInterface(BaseIBLDataInterface):
@@ -25,7 +25,7 @@ class MesoscopeROIAnatomicalLocalizationInterface(BaseIBLDataInterface):
         self.session = session
         self.revision = self.REVISION
         # Check if task exists
-        FOV_names = get_available_FOV_names(one, session)
+        FOV_names = get_FOV_names_from_alf_collections(one, session)
         if FOV_name not in FOV_names:
             raise ValueError(
                 f"FOV_name '{FOV_name}' not found for session '{session}'. " f"Available FOV_names: {FOV_names}.'"
@@ -295,7 +295,7 @@ class MesoscopeImageAnatomicalLocalizationInterface(BaseIBLDataInterface):
         self.session = session
         self.revision = self.REVISION
         # Check if task exists
-        FOV_names = get_available_FOV_names(one, session)
+        FOV_names = get_FOV_names_from_alf_collections(one, session)
         if FOV_name not in FOV_names:
             raise ValueError(
                 f"FOV_name '{FOV_name}' not found for session '{session}'. " f"Available FOV_names: {FOV_names}.'"

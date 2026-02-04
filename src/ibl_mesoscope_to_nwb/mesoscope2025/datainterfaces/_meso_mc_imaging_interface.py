@@ -13,7 +13,7 @@ from pynwb import NWBFile
 from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
     MesoscopeMotionCorrectedImagingExtractor,
 )
-from ibl_mesoscope_to_nwb.mesoscope2025.utils.FOVs import get_available_FOV_names
+from ibl_mesoscope_to_nwb.mesoscope2025.utils.FOVs import get_FOV_names_from_alf_collections
 
 
 class MesoscopeMotionCorrectedImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInterface):
@@ -31,7 +31,7 @@ class MesoscopeMotionCorrectedImagingInterface(BaseIBLDataInterface, BaseImaging
         self.session = session
         self.revision = self.REVISION
         # Check if task exists
-        FOV_names = get_available_FOV_names(one, session)
+        FOV_names = get_FOV_names_from_alf_collections(one, session)
         if FOV_name not in FOV_names:
             raise ValueError(
                 f"FOV_name '{FOV_name}' not found for session '{session}'. " f"Available FOV_names: {FOV_names}.'"
@@ -202,8 +202,9 @@ class MesoscopeMotionCorrectedImagingInterface(BaseIBLDataInterface, BaseImaging
         ophys_metadata = load_dict_from_file(
             file_path=Path(__file__).parent.parent / "_metadata" / "mesoscope_processed_ophys_metadata.yaml"
         )
-        raw_metadata = self.one.load_object(self.session, obj="_ibl_rawImagingData", collection="raw_imaging_data_00")
-        raw_metadata = raw_metadata["meta"]
+        raw_metadata = self.one.load_dataset(
+            self.session, dataset="_ibl_rawImagingData", collection="raw_imaging_data_00"
+        )
         fov = raw_metadata["FOV"][self.FOV_index]
 
         suffix = self.FOV_name.replace("_", "")

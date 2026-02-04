@@ -8,7 +8,7 @@ from ibl_to_nwb.datainterfaces import (
 )
 from one.api import ONE
 
-from ibl_mesoscope_to_nwb.mesoscope2025.utils import get_available_tasks
+from ibl_mesoscope_to_nwb.mesoscope2025.utils import get_available_tasks_from_alf_collections
 
 
 class MesoscopeWheelKinematicsInterface(WheelKinematicsInterface):
@@ -22,7 +22,7 @@ class MesoscopeWheelKinematicsInterface(WheelKinematicsInterface):
         self.session = session
         self.revision = self.REVISION
         # Check if task exists
-        tasks = get_available_tasks(one, session)
+        tasks = get_available_tasks_from_alf_collections(one, session)
         if task not in tasks:
             raise ValueError(f"Task '{task}' not found for session '{session}'. " f"Available tasks: {tasks}.'")
         self.task = task
@@ -190,7 +190,7 @@ class MesoscopeWheelMovementsInterface(WheelMovementsInterface):
         self.session = session
         self.revision = self.REVISION
         # Check if task exists
-        tasks = get_available_tasks(one, session)
+        tasks = get_available_tasks_from_alf_collections(one, session)
         if task not in tasks:
             logging.warning(f"Task '{task}' not found for session '{session}'. " f"Available tasks: {tasks}.'")
         self.task = task
@@ -358,7 +358,7 @@ class MesoscopeWheelPositionInterface(WheelPositionInterface):
         self.session = session
         self.revision = self.REVISION
         # Check if task exists
-        tasks = get_available_tasks(one, session)
+        tasks = get_available_tasks_from_alf_collections(one, session)
         if task not in tasks:
             logging.warning(f"Task '{task}' not found for session '{session}'. " f"Available tasks: {tasks}.'")
         self.task = task
