@@ -33,7 +33,7 @@ from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
     MesoscopeWheelPositionInterface,
 )
 from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
-    get_available_tasks,
+    get_available_tasks_from_alf_collections,
     sanitize_subject_id_for_dandi,
     setup_paths,
 )
@@ -375,7 +375,7 @@ def convert_processed_session(
     conversion_options.update({"BrainwideMapTrials": dict(stub_test=stub_test, stub_trials=10)})
 
     # Wheel data - add each interface if its data is available
-    available_tasks = get_available_tasks(**interface_kwargs)
+    available_tasks = get_available_tasks_from_alf_collections(**interface_kwargs)
     for task in available_tasks:
         if MesoscopeWheelPositionInterface.check_availability(one, eid, task=task)["available"]:
             data_interfaces[f"{task.replace('task_', 'Task')}WheelPosition"] = MesoscopeWheelPositionInterface(

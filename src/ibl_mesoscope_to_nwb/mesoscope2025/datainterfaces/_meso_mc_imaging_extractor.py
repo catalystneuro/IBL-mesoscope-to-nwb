@@ -33,10 +33,23 @@ class MesoscopeMotionCorrectedImagingExtractor(ImagingExtractor):
         self._dtype = np.dtype("int16")
 
         # Verify binary file size matches expected dimensions
-        self._file_path = self.one.load_dataset(
-            self.session, dataset="imaging.frames_motionRegistered", collection=f"suite2p/{self.plane_name}"
+        local_session_folder_path = self.one.eid2path(self.session, query_type="local")
+        mc_imaging_collections = self.one.list_collections(
+            self.session,
+            filename=f"suite2/{self.plane_name}/imaging.frames_motionRegistered.bin",
         )
-        # TODO add correction fro "suite2"
+        if not mc_imaging_collections:
+            mc_imaging_collections = self.one.list_collections(
+                self.session,
+                filename=f"suite2p/{self.plane_name}/imaging.frames_motionRegistered.bin",
+            )
+        assert (
+            len(mc_imaging_collections) >= 1
+        ), f"Expected one motion corrected imaging data collection for plane {self.plane_name}, found {len(mc_imaging_collections)}: {mc_imaging_collections}."
+        mc_imaging_collection = mc_imaging_collections[0]
+        self._file_path = local_session_folder_path / mc_imaging_collection / "imaging.frames_motionRegistered.bin"
+        assert self._file_path.exists(), f"Motion corrected imaging binary file not found at {self._file_path}."
+
         expected_size = self._num_samples * self._frame_shape[0] * self._frame_shape[1] * self._dtype.itemsize
         actual_size = self._file_path.stat().st_size
         if actual_size != expected_size:

@@ -13,7 +13,7 @@ from pynwb import NWBFile
 from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
     MesoscopeMotionCorrectedImagingExtractor,
 )
-from ibl_mesoscope_to_nwb.mesoscope2025.utils.FOVs import get_FOV_names_from_alf_collections
+from ibl_mesoscope_to_nwb.mesoscope2025.utils import get_FOV_names_from_alf_collections
 
 
 class MesoscopeMotionCorrectedImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInterface):
@@ -203,7 +203,7 @@ class MesoscopeMotionCorrectedImagingInterface(BaseIBLDataInterface, BaseImaging
             file_path=Path(__file__).parent.parent / "_metadata" / "mesoscope_processed_ophys_metadata.yaml"
         )
         raw_metadata = self.one.load_dataset(
-            self.session, dataset="_ibl_rawImagingData", collection="raw_imaging_data_00"
+            self.session, dataset="_ibl_rawImagingData.meta.json", collection="raw_imaging_data_00"
         )
         fov = raw_metadata["FOV"][self.FOV_index]
 

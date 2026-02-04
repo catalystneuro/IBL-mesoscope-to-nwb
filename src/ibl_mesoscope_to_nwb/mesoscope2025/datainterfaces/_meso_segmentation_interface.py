@@ -211,7 +211,7 @@ class MesoscopeSegmentationInterface(BaseIBLDataInterface, BaseSegmentationExtra
         )
 
         raw_metadata = self.one.load_dataset(
-            self.session, dataset="_ibl_rawImagingData", collection="raw_imaging_data_00"
+            self.session, dataset="_ibl_rawImagingData.meta.json", collection="raw_imaging_data_00"
         )
         fov = raw_metadata["FOV"][self.FOV_index]
 

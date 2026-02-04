@@ -12,9 +12,9 @@ def get_FOV_names_from_alf_collections(one: ONE, session: str) -> list[str]:
     return sorted([collection.split("/")[1] for collection in collections])
 
 
-def get_number_of_FOVs_from_raw_imaging_metadata(one: ONE, session: str) -> int:
-    """Get number of available FOVs for a given session. It is assum that task 00 exists and the number of FOVs is consistent across tasks."""
-    metadata = one.load_dataset(session, dataset="_ibl_rawImagingData.meta.json", collection="raw_imaging_data_00")
+def get_number_of_FOVs_from_raw_imaging_metadata(one: ONE, session: str, task: str = "00") -> int:
+    """Get number of available FOVs for a given session. It is assume that task 00 exists and the number of FOVs is consistent across tasks."""
+    metadata = one.load_dataset(session, dataset="_ibl_rawImagingData.meta.json", collection=f"raw_imaging_data_{task}")
     return len(metadata["FOV"])
 
 
