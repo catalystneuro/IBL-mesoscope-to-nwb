@@ -2,6 +2,7 @@ import json
 from copy import deepcopy
 from pathlib import Path
 from typing import Literal, Optional
+from one.api import ONE
 
 from ibl_to_nwb.datainterfaces._base_ibl_interface import BaseIBLDataInterface
 from neuroconv.datainterfaces.ophys.baseimagingextractorinterface import (
@@ -15,12 +16,16 @@ from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
     MesoscopeRawImagingExtractor,
 )
 
+from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
+    get_number_of_FOVs_from_raw_imaging_metadata,
+    get_available_tasks_from_raw_collections,
+)
+
 
 class MesoscopeRawImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInterface):
     """Data Interface for IBL Mesoscope Raw Imaging data."""
 
     display_name = "IBL Raw Mesoscope Imaging"
-    associated_suffixes = ".tif"
     info = "Interface for IBL Raw Mesoscope imaging data."
 
     @classmethod
@@ -29,60 +34,212 @@ class MesoscopeRawImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInt
 
     def __init__(
         self,
-        file_path: Optional[FilePath] = None,
-        channel_name: Optional[str] = None,
-        file_paths: Optional[list[FilePath]] = None,
-        FOV_name: str | None = None,
-        task: str = "",
-        plane_index: Optional[int] = None,
+        one: ONE,
+        session: str,
+        FOV_index: int,
+        task: str,
         verbose: bool = False,
     ):
         """
         Parameters
         ----------
-        file_path : FilePath, optional
-            Path to the ScanImage TIFF file. If this is part of a multi-file series, this should be the first file.
-            Either `file_path` or `file_paths` must be provided.
-        channel_name : str, optional
-            Name of the channel to extract (e.g., "Channel 1", "Channel 2").
-
-            - If None and only one channel is available, that channel will be used.
-            - If None and multiple channels are available, an error will be raised.
-            - Use `get_available_channels(file_path)` to see available channels before creating the interface.
-        file_paths : list[Path | str], optional
-            List of file paths to use. This is an escape value that can be used
-            in case the automatic file detection doesn't work correctly and can be used
-            to override the automatic file detection.
-            This is useful when:
-
-            - Automatic detection doesn't work correctly
-            - You need to specify a custom subset of files
-            - You need to control the exact order of files
-            The file paths must be provided in the temporal order of the frames in the dataset.
-        FOV_name : str, optional
-            Name suffix to use for the imaging plane and two-photon series in the NWB file.
-            If None, no suffix will be added.
+        one : ONE
+            An instance of the ONE API.
+        session : str
+            The session ID for the experiment.
+        FOV_index : int
+            Index of the field of view (FOV) for the imaging data.
+        task : str
+            Task name associated with the imaging data. e.g., '00', '01', etc.
+        verbose : bool, optional
+            If True, enables verbose output during processing.
         """
-        file_paths = [Path(file_path)] if file_path else file_paths
+        self.one = one
+        self.session = session
+        assert FOV_index < get_number_of_FOVs_from_raw_imaging_metadata(
+            self.one, self.session, task
+        ), f"FOV_index {FOV_index} is out of range for session {self.session} and task {task}."
+        self.FOV_name = f"FOV_{FOV_index:02d}"
+        self.FOV_index = FOV_index
+        assert task in get_available_tasks_from_raw_collections(
+            self.one, self.session
+        ), f"Task {task} not found in available raw imaging tasks for session {self.session}."
+        self.task = task
+        channel_name = "OpticalChannel"  # TODO update for dual plane
+        local_session_folder_path = self.one.eid2path(self.session, query_type="local")
+        raw_imaging_collections = self.one.list_collections(
+            self.session,
+            filename=f"*raw_imaging_data_{self.task}*",
+        )
+        raw_imaging_collection = [collection for collection in raw_imaging_collections if "reference" not in collection]
+        assert (
+            len(raw_imaging_collection) == 1
+        ), f"Expected one raw imaging data collection for task {self.task}, found {len(raw_imaging_collection)}."
+        raw_imaging_collection = raw_imaging_collection[0]
+        decompressed_raw_imaging_folder = local_session_folder_path / raw_imaging_collection / "imaging.frames"
+        # check that folder exists
+        if not decompressed_raw_imaging_folder.exists():
+            raise FileNotFoundError(
+                f"Decompressed raw imaging data folder not found at {decompressed_raw_imaging_folder}. Please ensure the raw imaging data has been decompressed."
+            )
+        file_paths = sorted(decompressed_raw_imaging_folder.glob("*.tif"))
+        if len(file_paths) == 0:
+            raise FileNotFoundError(
+                f"No .tif files found in raw imaging data folder at {decompressed_raw_imaging_folder}"
+            )
 
-        self.raw_imaging_metadata_path = file_paths[0].parent.parent / "_ibl_rawImagingData.meta.json"
-
-        self.channel_name = channel_name
         super().__init__(
-            file_path=file_path,
             channel_name=channel_name,
             file_paths=file_paths,
-            plane_index=plane_index,
+            FOV_index=FOV_index,
             verbose=verbose,
         )
 
-        # Make sure the timestamps are available, the extractor caches them
-        times = self.imaging_extractor.get_times()
-        self.imaging_extractor.set_times(times=times)
+        # Override timestamps loaded by the extractor with those from ONE
+        timestamps = self.one.load_dataset(
+            id=self.session, dataset="rawImagingData.times_scanImage", collection=raw_imaging_collection
+        )
+        self.imaging_extractor.set_times(times=timestamps)
 
-        self.FOV_name = FOV_name
-        self.FOV_index = plane_index if plane_index is not None else int(FOV_name.replace("FOV_", ""))
-        self.task = task
+    @classmethod
+    def get_data_requirements(cls, task: str) -> dict:
+        """
+        Declare exact data files required for anatomical localization.
+
+        Note: This interface derives anatomical localization from specific numpy files.
+
+        Returns
+        -------
+        dict
+            Data requirements with exact file paths
+        """
+        return {
+            "exact_files_options": {
+                "standard": [
+                    f"raw_imaging_data_{task}/imaging.frames.tar.bz2",
+                    f"raw_imaging_data_{task}/rawImagingData.times_scanImage.npy",
+                ]
+            },
+        }
+
+    @classmethod
+    def check_availability(cls, one: ONE, eid: str, **kwargs) -> dict:
+        """
+        Check if required data is available for a specific session.
+
+        This method NEVER downloads data - it only checks if files exist
+        using one.list_datasets(). It's designed to be fast and read-only,
+        suitable for scanning many sessions.
+
+        NO try-except patterns that hide failures. If checking fails,
+        let the exception propagate.
+
+        NOTE: Does NOT use revision filtering in check_availability(). Queries for latest
+        version of all files regardless of revision tags. This matches the smart fallback
+        behavior of load_object() and download methods, which try requested revision first
+        but fall back to latest if not found.
+
+        Parameters
+        ----------
+        one : ONE
+            ONE API instance
+        eid : str
+            Session ID (experiment ID)
+        **kwargs : dict
+            Interface-specific parameters
+
+        Returns
+        -------
+        dict
+            {
+                "available": bool,              # Overall availability
+                "missing_required": [str],      # Missing required files
+                "found_files": [str],           # Files that exist
+                "alternative_used": str,        # Which alternative was found (if applicable)
+                "requirements": dict,           # Copy of get_data_requirements()
+            }
+
+        Examples
+        --------
+        >>> result = WheelInterface.check_availability(one, eid)
+        >>> if not result["available"]:
+        >>>     print(f"Missing: {result['missing_required']}")
+        """
+        # STEP 1: Check quality (QC filtering)
+        quality_result = cls.check_quality(one=one, eid=eid, **kwargs)
+
+        if quality_result is not None:
+            # If quality check explicitly rejects, return immediately
+            if quality_result.get("available") is False:
+                return quality_result
+            # Otherwise, save extra fields to merge later
+            extra_fields = quality_result
+        else:
+            extra_fields = {}
+
+        # STEP 2: Check file existence
+        requirements = cls.get_data_requirements(**kwargs)
+
+        # Query without revision filtering to get latest version of ALL files
+        # This includes both revision-tagged files (spike sorting) and untagged files (behavioral)
+        # The unfiltered query returns the superset of what any revision-specific query would return
+        available_datasets = one.list_datasets(eid)
+        available_files = set(str(d) for d in available_datasets)
+
+        missing_required = []
+        found_files = []
+        alternative_used = None
+
+        # Check file options - this is now REQUIRED (not optional)
+        # Every interface must define exact_files_options dict
+        exact_files_options = requirements.get("exact_files_options", {})
+
+        if not exact_files_options:
+            raise ValueError(
+                f"{cls.__name__}.get_data_requirements() must return 'exact_files_options' dict. "
+                f"Even for single-format interfaces, use: {{'standard': ['file1.npy', 'file2.npy']}}"
+            )
+
+        # Check each named option - ANY complete option = available
+        for option_name, option_files in exact_files_options.items():
+            all_files_found = True
+
+            for exact_file in option_files:
+                # Handle wildcards
+                if "*" in exact_file:
+                    import re
+
+                    pattern = re.escape(exact_file).replace(r"\*", ".*")
+                    found = any(re.search(pattern, avail) for avail in available_files)
+                else:
+                    found = any(exact_file in avail for avail in available_files)
+
+                if not found:
+                    all_files_found = False
+                    break  # This option is incomplete
+
+            # If this option has all files, mark as available
+            if all_files_found:
+                found_files.extend(option_files)
+                alternative_used = option_name  # Report which option was found
+                break  # Found one complete option, that's enough
+
+        # If no options were complete, mark the first option as missing for reporting
+        if not alternative_used:
+            first_option_name = next(iter(exact_files_options.keys()))
+            missing_required.extend(exact_files_options[first_option_name])
+
+        # STEP 3: Build result and merge extra fields from quality check
+        result = {
+            "available": len(missing_required) == 0,
+            "missing_required": missing_required,
+            "found_files": found_files,
+            "alternative_used": alternative_used,
+            "requirements": requirements,
+        }
+        result.update(extra_fields)
+
+        return result
 
     def get_metadata(self) -> DeepDict:
         """
@@ -104,11 +261,12 @@ class MesoscopeRawImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInt
             file_path=Path(__file__).parent.parent / "_metadata" / "mesoscope_raw_ophys_metadata.yaml"
         )
 
-        with open(self.raw_imaging_metadata_path, "r") as f:
-            raw_metadata = json.load(f)
-            fov = raw_metadata["FOV"][self.FOV_index]
+        raw_metadata = self.one.load_dataset(
+            self.session, dataset="_ibl_rawImagingData.meta.json", collection=f"raw_imaging_data_{self.task}"
+        )
+        fov = raw_metadata["FOV"][self.FOV_index]
 
-        two_photon_series_suffix = self.FOV_name.replace("_", "") + self.task
+        two_photon_series_suffix = self.FOV_name.replace("_", "") + f"Task{self.task}"
         imaging_plane_suffix = self.FOV_name.replace("_", "")
         # Get the template structures (single entries from YAML)
         imaging_plane_template = ophys_metadata["Ophys"]["ImagingPlane"][0]

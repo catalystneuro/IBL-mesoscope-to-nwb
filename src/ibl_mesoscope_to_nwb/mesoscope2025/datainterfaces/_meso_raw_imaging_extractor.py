@@ -17,7 +17,7 @@ class MesoscopeRawImagingExtractor(ScanImageImagingExtractor):
     Tiled Configuration Support:
     - Handles ScanImage "Tiled" display mode (SI.hDisplay.volumeDisplayStyle == "Tiled")
     - In Tiled mode, multiple FOVs are stored vertically within a single TIFF frame with spacing between them
-    - The plane_index parameter selects which FOV to extract from the tiled frame
+    - The FOV_index parameter selects which FOV to extract from the tiled frame
     - Automatically calculates FOV positions and extracts only the requested FOV data
     - See conversion_notes.md for detailed explanation of Tiled configuration handling
 
@@ -35,10 +35,10 @@ class MesoscopeRawImagingExtractor(ScanImageImagingExtractor):
 
     def __init__(
         self,
+        FOV_index: int,
         file_path: PathType | None = None,
         channel_name: str | None = None,
         file_paths: list[PathType] | None = None,
-        plane_index: int | None = None,
     ):
         """
         Initialize the MesoscopeRawImagingExtractor.
@@ -60,6 +60,8 @@ class MesoscopeRawImagingExtractor(ScanImageImagingExtractor):
             - You need to specify a custom subset of files
             - You need to control the exact order of files
             The file paths must be provided in the temporal order of the frames in the dataset.
+        FOV_index : int
+            Index of the Field of View (FOV) to extract when using ScanImage "Tiled" display mode.
 
         Examples
         --------
@@ -79,7 +81,7 @@ class MesoscopeRawImagingExtractor(ScanImageImagingExtractor):
         # Detect if ScanImage is using "Tiled" display mode
         # In Tiled mode, multiple FOVs are stored vertically in a single TIFF frame with spacing between them
         self.tiled_configuration = self._metadata["SI.hDisplay.volumeDisplayStyle"] == "Tiled"
-        self.plane_index = plane_index if plane_index is not None else 0
+        self.FOV_index = FOV_index
 
         if self.tiled_configuration:
             # TILED CONFIGURATION HANDLING:
@@ -176,7 +178,7 @@ class MesoscopeRawImagingExtractor(ScanImageImagingExtractor):
                 if self.tiled_configuration:
                     # TILED FRAME EXTRACTION:
                     # In Tiled mode, each TIFF frame contains all FOVs stacked vertically.
-                    # We need to extract only the rows corresponding to the requested FOV (plane_index).
+                    # We need to extract only the rows corresponding to the requested FOV (FOV_index).
                     #
                     # Frame structure:
                     # FOV_0: rows [0, num_rows)
@@ -188,7 +190,7 @@ class MesoscopeRawImagingExtractor(ScanImageImagingExtractor):
                     # General formula for FOV_i:
                     # start_row = i × (num_rows + filler_pixels)
                     # end_row = start_row + num_rows
-                    start_row = int(self.plane_index * (self._num_rows + self._num_filler_pixels))
+                    start_row = int(self.FOV_index * (self._num_rows + self._num_filler_pixels))
                     end_row = int(start_row + self._num_rows)
                     # Extract only the rows for the requested FOV, discarding filler pixels
                     samples[return_index, :, :, depth_position] = image_file_directory.asarray()[start_row:end_row, :]
