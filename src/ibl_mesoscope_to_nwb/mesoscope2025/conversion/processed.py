@@ -1,11 +1,8 @@
 """Primary script to run to convert an entire session for of data using the NWBConverter."""
 
-import json
 import time
 from pathlib import Path
-from typing import List
 
-import numpy as np
 from ibl_to_nwb.datainterfaces import (
     BrainwideMapTrialsInterface,
     IblPoseEstimationInterface,
@@ -16,16 +13,17 @@ from ibl_to_nwb.datainterfaces import (
     RoiMotionEnergyInterface,
     SessionEpochsInterface,
 )
-from ndx_ibl import IblMetadata, IblSubject
+from ndx_ibl import IblSubject
 from neuroconv.utils import dict_deep_update, load_dict_from_file
 from one.api import ONE
 from pynwb import NWBFile
 
 from ibl_mesoscope_to_nwb.mesoscope2025 import ProcessedMesoscopeNWBConverter
 from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
-    MesoscopeAnatomicalLocalizationInterface,
+    MesoscopeImageAnatomicalLocalizationInterface,
     MesoscopeMotionCorrectedImagingExtractor,
     MesoscopeMotionCorrectedImagingInterface,
+    MesoscopeROIAnatomicalLocalizationInterface,
     MesoscopeSegmentationExtractor,
     MesoscopeSegmentationInterface,
     MesoscopeWheelKinematicsInterface,
@@ -34,253 +32,15 @@ from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
 )
 from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
     get_available_tasks_from_alf_collections,
+    get_FOV_names_from_alf_collections,
     sanitize_subject_id_for_dandi,
-    setup_paths,
 )
-
-
-def update_processed_ophys_metadata(
-    ophys_metadata_path: Path, raw_imaging_metadata_path: Path, FOV_names: List[str]
-) -> dict:
-    """
-    Update the ophys metadata structure with actual values from raw imaging metadata.
-
-    This function loads a template metadata structure from a YAML file and populates it with
-    actual experimental values from the IBL mesoscope raw imaging metadata JSON file. It creates
-    separate metadata entries for each field of view (FOV), including imaging planes, plane
-    segmentations, two-photon series, fluorescence traces, and segmentation images.
-
-    The function performs the following steps:
-    1. Load the metadata structure template from a YAML file
-    2. Load actual values from `_ibl_rawImagingData.meta.json` containing:
-       - ScanImage configuration parameters
-       - ROI definitions and spatial coordinates
-       - Laser settings and scanner properties
-       - Coordinate transformations (stereotactic coordinates)
-    3. For each FOV, extract and calculate:
-       - Spatial parameters (origin coordinates, grid spacing, pixel size)
-       - Brain region information (Allen CCF IDs)
-       - Imaging parameters (frame rate, z-position, dimensions)
-    4. Create metadata entries for each FOV with unique names and proper cross-references
-
-    Parameters
-    ----------
-    ophys_metadata_path : Path
-        Path to the YAML file containing the ophys metadata template structure.
-        Expected to contain templates for: ImagingPlane, ImageSegmentation,
-        TwoPhotonSeries, Fluorescence, and SegmentationImages.
-    raw_imaging_metadata_path : Path
-        Path to the `_ibl_rawImagingData.meta.json` file containing comprehensive
-        metadata about the mesoscopic imaging acquisition. This file includes:
-        - FOV array with spatial coordinates for each field of view
-        - ScanImage parameters (frame rate, scanner frequency, etc.)
-        - Stereotactic coordinates (ML, AP, DV) relative to bregma
-        - Brain region IDs from Allen Common Coordinate Framework (CCF) 2017
-    FOV_names : List[str]
-        List of field of view (FOV) names to process, used for creating unique
-        identifiers. Length must match the number of FOVs in raw_imaging_metadata.
-        Example: ['FOV_00', 'FOV_01', 'FOV_02', ...]
-
-    Returns
-    -------
-    dict
-        Updated metadata dictionary with the following structure:
-        {
-            'Ophys': {
-                'Device': [...],  # Original device info preserved
-                'ImagingPlane': [  # One entry per FOV
-                    {
-                        'name': 'ImagingPlaneFOV00',
-                        'description': '...',
-                        'imaging_rate': 5.07,
-                        'location': '...',
-                        'origin_coords': [x, y, z],  # in meters
-                        'grid_spacing': [dx, dy],     # in meters
-                        ...
-                    },
-                    ...
-                ],
-                'ImageSegmentation': {
-                    'plane_segmentations': [  # One entry per FOV
-                        {
-                            'name': 'PlaneSegmentationFOV00',
-                            'imaging_plane': 'ImagingPlaneFOV00',
-                            ...
-                        },
-                        ...
-                    ]
-                },
-                'TwoPhotonSeries': [...],  # One entry per FOV
-                'Fluorescence': {  # Dictionary keyed by plane_segmentation name
-                    'PlaneSegmentationFOV00': {
-                        'raw': {...},
-                        'deconvolved': {...},
-                        'neuropil': {...}
-                    },
-                    ...
-                },
-                'SegmentationImages': {  # Dictionary keyed by plane_segmentation name
-                    'PlaneSegmentationFOV00': {
-                        'mean': {...}
-                    },
-                    ...
-                }
-            }
-        }
-
-    Notes
-    -----
-    - Spatial coordinates are converted from micrometers (as stored in raw metadata)
-      to meters (NWB standard)
-    - Origin coordinates represent the top-left corner of each FOV in stereotactic space
-    - Grid spacing (pixel size) is calculated from FOV physical dimensions and pixel count
-    - The function uses deep copying of template structures to ensure independence
-      between FOVs
-
-    Examples
-    --------
-    >>> from pathlib import Path
-    >>> ophys_path = Path("metadata/mesoscope_ophys_metadata.yaml")
-    >>> raw_path = Path("raw_imaging_data_00/_ibl_rawImagingData.meta.json")
-    >>> FOV_names = ['FOV_00', 'FOV_01', 'FOV_02']
-    >>> metadata = update_processed_ophys_metadata(ophys_path, raw_path, FOV_names)
-    >>> len(metadata['Ophys']['ImagingPlane'])
-    3
-    >>> metadata['Ophys']['ImagingPlane'][0]['name']
-    'ImagingPlaneFOV00'
-    """
-
-    # Load ophys metadata structure
-    ophys_metadata = load_dict_from_file(ophys_metadata_path)
-
-    # Load raw imaging metadata
-    with open(raw_imaging_metadata_path, "r") as f:
-        raw_metadata = json.load(f)
-
-    # Get the template structures (single entries from YAML)
-    imaging_plane_template = ophys_metadata["Ophys"]["ImagingPlane"][0]
-    plane_seg_template = ophys_metadata["Ophys"]["ImageSegmentation"]["plane_segmentations"][0]
-    two_photon_series_template = ophys_metadata["Ophys"]["TwoPhotonSeries"][0]
-    fluorescence_template = ophys_metadata["Ophys"]["Fluorescence"]
-    seg_images_template = ophys_metadata["Ophys"]["SegmentationImages"]
-
-    # Clear the lists to populate with actual FOV data
-    ophys_metadata["Ophys"]["ImagingPlane"] = []
-    ophys_metadata["Ophys"]["ImageSegmentation"]["plane_segmentations"] = []
-    ophys_metadata["Ophys"]["TwoPhotonSeries"] = []
-
-    # Clear the Fluorescence and SegmentationImages structures
-    ophys_metadata["Ophys"]["Fluorescence"] = {}
-    ophys_metadata["Ophys"]["SegmentationImages"] = {}
-
-    # Get global imaging rate
-    imaging_rate = raw_metadata["scanImageParams"]["hRoiManager"]["scanFrameRate"]
-
-    # Get device information (assumed single device)
-    device_metadata = ophys_metadata["Ophys"]["Device"][0]
-
-    # Iterate through each FOV
-    for FOV_index, FOV_name in enumerate(FOV_names):
-        camel_case_FOV_name = FOV_name.replace("_", "")
-        fov = raw_metadata["FOV"][FOV_index]
-
-        # Extract FOV-specific metadata
-        fov_uuid = fov["roiUUID"]
-        center_mlapdv = fov["MLAPDV"]["center"]  # [ML, AP, DV] in micrometers
-        brain_region_id = fov["brainLocationIds"]["center"]
-        dimensions = fov["nXnYnZ"]  # [width, height, depth] in pixels
-
-        # Calculate origin_coords from top-left corner (convert from micrometers to meters)
-        top_left = fov["MLAPDV"]["topLeft"]
-        origin_coords = [
-            top_left[0] * 1e-6,  # ML in meters
-            top_left[1] * 1e-6,  # AP in meters
-            top_left[2] * 1e-6,  # DV in meters
-        ]
-
-        # Calculate grid_spacing (pixel size in meters)
-        top_right = np.array(fov["MLAPDV"]["topRight"])
-        bottom_left = np.array(fov["MLAPDV"]["bottomLeft"])
-        top_left_array = np.array(top_left)
-
-        width_um = np.linalg.norm(top_right - top_left_array)
-        height_um = np.linalg.norm(bottom_left - top_left_array)
-
-        pixel_size_x = width_um / dimensions[0]  # μm/pixel
-        pixel_size_y = height_um / dimensions[1]  # μm/pixel
-
-        grid_spacing = [pixel_size_x * 1e-6, pixel_size_y * 1e-6]  # x spacing in meters  # y spacing in meters
-
-        # Create ImagingPlane entry for this FOV
-        imaging_plane = imaging_plane_template.copy()
-        imaging_plane["name"] = f"ImagingPlane{camel_case_FOV_name}"
-        imaging_plane["description"] = (
-            f"Field of view {FOV_index} (UUID: {fov_uuid}). "
-            f"Center location: ML={center_mlapdv[0]:.1f}um, "
-            f"AP={center_mlapdv[1]:.1f}um, DV={center_mlapdv[2]:.1f}um. "
-            f"Image dimensions: {dimensions[0]}x{dimensions[1]} pixels."
-        )
-        imaging_plane["imaging_rate"] = imaging_rate
-        imaging_plane["location"] = f"FOV center location: Brain region ID {brain_region_id} (Allen CCF 2017)"
-        imaging_plane["origin_coords"] = origin_coords
-        imaging_plane["grid_spacing"] = grid_spacing
-        imaging_plane["device"] = device_metadata["name"]
-
-        ophys_metadata["Ophys"]["ImagingPlane"].append(imaging_plane)
-
-        # Create PlaneSegmentation entry for this FOV
-        plane_seg = plane_seg_template.copy()
-        plane_seg["name"] = f"PlaneSegmentation{camel_case_FOV_name}"
-        plane_seg["description"] = f"Spatial components of segmented ROIs for {FOV_name} (UUID: {fov_uuid})."
-        plane_seg["imaging_plane"] = f"ImagingPlane{camel_case_FOV_name}"
-
-        ophys_metadata["Ophys"]["ImageSegmentation"]["plane_segmentations"].append(plane_seg)
-
-        # Create Motion Corrected TwoPhotonSeries entry for this FOV
-        mc_two_photon_series = two_photon_series_template.copy()
-        mc_two_photon_series["name"] = f"MotionCorrectedTwoPhotonSeries{camel_case_FOV_name}"
-        mc_two_photon_series["description"] = (
-            f"The motion corrected two-photon imaging data acquired using the mesoscope on {FOV_name} (UUID: {fov_uuid})."
-        )
-        mc_two_photon_series["imaging_plane"] = f"ImagingPlane{camel_case_FOV_name}"
-
-        ophys_metadata["Ophys"]["TwoPhotonSeries"].append(mc_two_photon_series)
-
-        # Create Fluorescence entries for this FOV
-        plane_seg_key = f"PlaneSegmentation{camel_case_FOV_name}"
-        ophys_metadata["Ophys"]["Fluorescence"][plane_seg_key] = {
-            "raw": {
-                "name": f"RawROIResponseSeries{camel_case_FOV_name}",
-                "description": f"The raw GCaMP fluorescence traces (temporal components) of segmented ROIs for {FOV_name} (UUID: {fov_uuid}).",
-                "unit": fluorescence_template["plane_segmentation"]["raw"]["unit"],
-            },
-            "deconvolved": {
-                "name": f"DeconvolvedROIResponseSeries{camel_case_FOV_name}",
-                "description": f"The deconvolved activity traces (temporal components) of segmented ROIs for {FOV_name} (UUID: {fov_uuid}).",
-                "unit": fluorescence_template["plane_segmentation"]["deconvolved"]["unit"],
-            },
-            "neuropil": {
-                "name": f"NeuropilResponseSeries{camel_case_FOV_name}",
-                "description": f"The neuropil signals (temporal components) for {FOV_name} (UUID: {fov_uuid}).",
-                "unit": fluorescence_template["plane_segmentation"]["neuropil"]["unit"],
-            },
-        }
-
-        # Create SegmentationImages entries for this FOV
-        ophys_metadata["Ophys"]["SegmentationImages"][plane_seg_key] = {
-            "mean": {
-                "name": f"MeanImage{camel_case_FOV_name}",
-                "description": f"The mean image for {FOV_name} (UUID: {fov_uuid}).",
-            }
-        }
-
-    return ophys_metadata
 
 
 def convert_processed_session(
     eid: str,
     one: ONE,
-    base_path: Path,
+    output_path: Path,
     stub_test: bool = False,
     append_on_disk_nwbfile: bool = False,
     verbose: bool = True,
@@ -297,8 +57,8 @@ def convert_processed_session(
         If True, creates minimal NWB for testing without downloading large files.
         In stub mode, spike properties (spike_amplitudes, spike_distances_from_probe_tip)
         are automatically skipped to reduce memory usage.
-    base_path : Path, optional
-        Base output directory for NWB files
+    output_path : Path, optional
+        Base output directory for NWB files.
     append_on_disk_nwbfile: bool, optional
         If True, append to an existing on-disk NWB file instead of creating a new one.
     Returns
@@ -308,11 +68,9 @@ def convert_processed_session(
     """
     if verbose:
         print(f"Starting PROCESSED conversion for session {eid}...")
+    start_time = time.time()
 
     # Setup paths
-    start_time = time.time()
-    paths = setup_paths(one, eid, base_path=base_path)
-
     session_info = one.alyx.rest("sessions", "read", id=eid)
     subject_nickname = session_info.get("subject")
     if isinstance(subject_nickname, dict):
@@ -320,11 +78,12 @@ def convert_processed_session(
     if not subject_nickname:
         subject_nickname = "unknown"
 
-    # New structure: nwbfiles/{full|stub}/sub-{subject}/*.nwb
-    conversion_type = "stub" if stub_test else "full"
     # Sanitize subject nickname for DANDI compliance (replace underscores with hyphens)
     subject_id_for_filenames = sanitize_subject_id_for_dandi(subject_nickname)
-    output_dir = Path(paths["output_folder"]) / conversion_type / f"sub-{subject_id_for_filenames}"
+
+    # New structure: nwbfiles/{full|stub}/sub-{subject}/*.nwb
+    conversion_mode = "stub" if stub_test else "full"
+    output_dir = output_path / conversion_mode / f"sub-{subject_id_for_filenames}"
     output_dir.mkdir(parents=True, exist_ok=True)
     nwbfile_path = output_dir / f"sub-{subject_id_for_filenames}_ses-{eid}_desc-processed_behavior+ophys.nwb"
 
@@ -340,43 +99,53 @@ def convert_processed_session(
     conversion_options = dict()
     interface_kwargs = dict(one=one, session=eid)
 
-    # # Add Motion Corrected Imaging
-    mc_imaging_folder = Path(paths["mc_imaging_folder"])
-    available_FOVs = MesoscopeMotionCorrectedImagingExtractor.get_available_planes(mc_imaging_folder)
-    available_FOVs = available_FOVs[:2] if stub_test else available_FOVs  # Limit to first 2 planes for testing
-    for FOV_index, FOV_name in enumerate(available_FOVs):
-        file_path = mc_imaging_folder / FOV_name / "imaging.frames_motionRegistered.bin"
+    processed_FOVs = get_FOV_names_from_alf_collections(**interface_kwargs)
+    processed_FOVs = processed_FOVs[:2] if stub_test else processed_FOVs  # Limit to first 2 planes for testing
+    for FOV_index, FOV_name in enumerate(processed_FOVs):
+        # Add Motion Corrected Imaging
+        assert MesoscopeMotionCorrectedImagingInterface.check_availability(
+            one, eid, FOV_name=FOV_name
+        ), f"Motion Corrected Imaging data not available for FOV '{FOV_name}' in session {eid}"
         data_interfaces[f"{FOV_name}MotionCorrectedImaging"] = MesoscopeMotionCorrectedImagingInterface(
-            file_path=file_path
+            **interface_kwargs, FOV_name=FOV_name, verbose=verbose
         )
         conversion_options.update(
             {f"{FOV_name}MotionCorrectedImaging": dict(stub_test=False, photon_series_index=FOV_index)}
         )
-
-    # # Add Segmentation
-    alf_folder = paths["session_folder"] / "alf"
-    FOV_names = MesoscopeSegmentationExtractor.get_available_planes(alf_folder)
-    FOV_names = FOV_names[:2] if stub_test else FOV_names  # Limit to first 2 planes for testing
-    for FOV_name in FOV_names:
+        assert MesoscopeSegmentationInterface.check_availability(
+            one, eid, FOV_name=FOV_name
+        ), f"Segmentation data not available for FOV '{FOV_name}' in session {eid}"
+        # Add Segmentation
         data_interfaces[f"{FOV_name}Segmentation"] = MesoscopeSegmentationInterface(
-            folder_path=alf_folder, FOV_name=FOV_name
+            **interface_kwargs, FOV_name=FOV_name, verbose=verbose
         )
         conversion_options.update({f"{FOV_name}Segmentation": dict(stub_test=False)})
 
-    # Add Anatomical Localization
-    for FOV_name in FOV_names:
-        data_interfaces[f"{FOV_name}AnatomicalLocalization"] = MesoscopeAnatomicalLocalizationInterface(
-            folder_path=alf_folder, FOV_name=FOV_name
-        )
-        conversion_options.update({f"{FOV_name}AnatomicalLocalization": dict()})
+        # Add Anatomical Localization
+        if MesoscopeROIAnatomicalLocalizationInterface.check_availability(one, eid, FOV_name=FOV_name)["available"]:
+            data_interfaces[f"{FOV_name}ROIAnatomicalLocalization"] = MesoscopeROIAnatomicalLocalizationInterface(
+                **interface_kwargs, FOV_name=FOV_name
+            )
+            conversion_options.update({f"{FOV_name}ROIAnatomicalLocalization": dict()})
+        else:
+            if verbose:
+                print(f"  - ROI Anatomical Localization not available for FOV '{FOV_name}'")
+        if MesoscopeImageAnatomicalLocalizationInterface.check_availability(one, eid, FOV_name=FOV_name)["available"]:
+            data_interfaces[f"{FOV_name}ImageAnatomicalLocalization"] = MesoscopeImageAnatomicalLocalizationInterface(
+                **interface_kwargs, FOV_name=FOV_name
+            )
+            conversion_options.update({f"{FOV_name}ImageAnatomicalLocalization": dict()})
+        else:
+            if verbose:
+                print(f"  - Image Anatomical Localization not available for FOV '{FOV_name}'")
 
     # Behavioral data
     data_interfaces["BrainwideMapTrials"] = BrainwideMapTrialsInterface(**interface_kwargs)
     conversion_options.update({"BrainwideMapTrials": dict(stub_test=stub_test, stub_trials=10)})
 
     # Wheel data - add each interface if its data is available
-    available_tasks = get_available_tasks_from_alf_collections(**interface_kwargs)
-    for task in available_tasks:
+    processed_tasks = get_available_tasks_from_alf_collections(**interface_kwargs)
+    for task in processed_tasks:
         if MesoscopeWheelPositionInterface.check_availability(one, eid, task=task)["available"]:
             data_interfaces[f"{task.replace('task_', 'Task')}WheelPosition"] = MesoscopeWheelPositionInterface(
                 **interface_kwargs, task=task
@@ -458,16 +227,6 @@ def convert_processed_session(
     editable_metadata = load_dict_from_file(editable_metadata_path)
     metadata = dict_deep_update(metadata, editable_metadata)
 
-    # Update ophys metadata
-    ophys_metadata_path = Path(__file__).parent.parent / "_metadata" / "mesoscope_processed_ophys_metadata.yaml"
-    raw_imaging_metadata_path = paths["session_folder"] / "raw_imaging_data_00" / "_ibl_rawImagingData.meta.json"
-    updated_ophys_metadata = update_processed_ophys_metadata(
-        ophys_metadata_path=ophys_metadata_path,
-        raw_imaging_metadata_path=raw_imaging_metadata_path,
-        FOV_names=FOV_names,
-    )
-    metadata = dict_deep_update(metadata, updated_ophys_metadata)
-
     # ========================================================================
     # STEP 4: Write NWB file
     # ========================================================================
@@ -526,7 +285,7 @@ if __name__ == "__main__":
         eid="5ce2e17e-8471-42d4-8a16-21949710b328",
         one=ONE(),  # base_url="https://alyx.internationalbrainlab.org"
         stub_test=True,
-        base_path=Path("E:/IBL-data-share"),
+        output_path=Path("E:/IBL-data-share/IBL-mesoscope-nwbfiles"),
         append_on_disk_nwbfile=False,
         verbose=True,
     )

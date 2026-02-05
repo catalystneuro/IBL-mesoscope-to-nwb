@@ -51,9 +51,9 @@ def convert_raw_session(
     """
     if verbose:
         print(f"Starting RAW conversion for session {eid}...")
-    # Setup paths
     start_time = time.time()
 
+    # Setup paths
     session_info = one.alyx.rest("sessions", "read", id=eid)
     subject_nickname = session_info.get("subject")
     if isinstance(subject_nickname, dict):
