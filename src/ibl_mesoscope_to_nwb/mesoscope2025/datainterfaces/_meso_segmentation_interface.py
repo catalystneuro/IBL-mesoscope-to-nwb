@@ -9,7 +9,9 @@ from neuroconv.utils import DeepDict, dict_deep_update, load_dict_from_file
 from one.api import ONE
 from pynwb import NWBFile
 
-from ibl_mesoscope_to_nwb.mesoscope2025.utils.FOVs import get_FOV_names_from_alf_collections
+from ibl_mesoscope_to_nwb.mesoscope2025.utils.FOVs import (
+    get_FOV_names_from_alf_collections,
+)
 
 from ._meso_segmentation_extractor import MesoscopeSegmentationExtractor
 
@@ -257,6 +259,7 @@ class MesoscopeSegmentationInterface(BaseIBLDataInterface, BaseSegmentationExtra
         # Create PlaneSegmentation entry for this FOV
         plane_seg = plane_seg_template.copy()
         plane_seg_key = self.plane_segmentation_name
+        plane_seg["name"] = plane_seg_key
         plane_seg["description"] = f"Spatial components of segmented ROIs for {self.FOV_name} (UUID: {fov_uuid})."
         plane_seg["imaging_plane"] = f"ImagingPlane{suffix}"
 

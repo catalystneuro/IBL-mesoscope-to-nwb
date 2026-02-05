@@ -21,10 +21,8 @@ from pynwb import NWBFile
 from ibl_mesoscope_to_nwb.mesoscope2025 import ProcessedMesoscopeNWBConverter
 from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
     MesoscopeImageAnatomicalLocalizationInterface,
-    MesoscopeMotionCorrectedImagingExtractor,
     MesoscopeMotionCorrectedImagingInterface,
     MesoscopeROIAnatomicalLocalizationInterface,
-    MesoscopeSegmentationExtractor,
     MesoscopeSegmentationInterface,
     MesoscopeWheelKinematicsInterface,
     MesoscopeWheelMovementsInterface,
@@ -110,7 +108,7 @@ def convert_processed_session(
             **interface_kwargs, FOV_name=FOV_name, verbose=verbose
         )
         conversion_options.update(
-            {f"{FOV_name}MotionCorrectedImaging": dict(stub_test=False, photon_series_index=FOV_index)}
+            {f"{FOV_name}MotionCorrectedImaging": dict(stub_test=stub_test, photon_series_index=FOV_index)}
         )
         assert MesoscopeSegmentationInterface.check_availability(
             one, eid, FOV_name=FOV_name
@@ -119,7 +117,7 @@ def convert_processed_session(
         data_interfaces[f"{FOV_name}Segmentation"] = MesoscopeSegmentationInterface(
             **interface_kwargs, FOV_name=FOV_name, verbose=verbose
         )
-        conversion_options.update({f"{FOV_name}Segmentation": dict(stub_test=False)})
+        conversion_options.update({f"{FOV_name}Segmentation": dict(stub_test=stub_test)})
 
         # Add Anatomical Localization
         if MesoscopeROIAnatomicalLocalizationInterface.check_availability(one, eid, FOV_name=FOV_name)["available"]:
@@ -285,7 +283,7 @@ if __name__ == "__main__":
         eid="5ce2e17e-8471-42d4-8a16-21949710b328",
         one=ONE(),  # base_url="https://alyx.internationalbrainlab.org"
         stub_test=True,
-        output_path=Path("E:/IBL-data-share/IBL-mesoscope-nwbfiles"),
+        output_path=Path("E:/IBL-mesoscope-nwbfiles"),
         append_on_disk_nwbfile=False,
         verbose=True,
     )

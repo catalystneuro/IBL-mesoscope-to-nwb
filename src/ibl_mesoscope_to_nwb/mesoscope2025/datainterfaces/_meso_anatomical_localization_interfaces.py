@@ -265,7 +265,7 @@ class MesoscopeROIAnatomicalLocalizationInterface(BaseIBLDataInterface):
         )
 
         # Get anatomical localization data
-        rois = self.one.load_object(self.session, self.get_load_object_kwargs())
+        rois = self.one.load_object(self.session, **self.get_load_object_kwargs())
         rois_mlapdv = rois["mlapdv_estimate"]
         rois_brain_location_ids = rois["brainLocationIds_ccf_2017_estimate"]
 
@@ -514,7 +514,7 @@ class MesoscopeImageAnatomicalLocalizationInterface(BaseIBLDataInterface):
             self.ibl_space = localization.spaces[ibl_space_name]
 
         # Get mean image anatomical localization data
-        mean_image_estimate = self.one.load_object(self.session, self.get_load_object_kwargs())
+        mean_image_estimate = self.one.load_object(self.session, **self.get_load_object_kwargs())
         mean_image_mlapdv = mean_image_estimate["mlapdv_estimate"]
         mean_image_regions = mean_image_estimate["brainLocationIds_ccf_2017_estimate"]
 
