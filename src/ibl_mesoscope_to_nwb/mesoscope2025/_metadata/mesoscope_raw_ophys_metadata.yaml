@@ -20,4 +20,4 @@ Ophys:
       optical_channel:
         - name: OpticalChannel
           emission_lambda: 510.0 # To be confirmed
-          description: GCaMP6s emission.
+          description: Optical channel recording GCaMP6s Ca2+ bound emission.
