@@ -1,6 +1,6 @@
 from ._meso_anatomical_localization_interfaces import (
-    MesoscopeROIAnatomicalLocalizationInterface,
     MesoscopeImageAnatomicalLocalizationInterface,
+    MesoscopeROIAnatomicalLocalizationInterface,
 )
 from ._meso_mc_imaging_extractor import (
     MesoscopeMotionCorrectedImagingExtractor,
