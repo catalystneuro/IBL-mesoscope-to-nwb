@@ -68,11 +68,7 @@ def convert_raw_session(
     conversion_mode = "stub" if stub_test else "full"
     output_dir = output_path / conversion_mode / f"sub-{subject_id_for_filenames}"
     output_dir.mkdir(parents=True, exist_ok=True)
-    nwbfile_path = (
-        output_dir
-        / f"sub-{subject_id_for_filenames}"
-        / f"sub-{subject_id_for_filenames}_ses-{eid}_desc-raw_behavior+ophys.nwb"
-    )
+    nwbfile_path = output_dir / f"sub-{subject_id_for_filenames}_ses-{eid}_desc-raw_behavior+ophys.nwb"
 
     # ========================================================================
     # STEP 1: Define data interfaces
@@ -143,7 +139,7 @@ def convert_raw_session(
         # Add video interface
         data_interfaces[f"{camera_name}RawVideoInterface"] = RawVideoInterface(
             **interface_kwargs,
-            nwbfiles_folder_path=output_dir,  # Video files should be organized alongside NWB files
+            nwbfiles_folder_path=output_path / conversion_mode,  # Video files should be organized alongside NWB files
             subject_id=subject_id_for_filenames,
             camera_name=camera_view,
         )
