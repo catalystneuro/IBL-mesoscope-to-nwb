@@ -1,12 +1,10 @@
 """Primary script to run to convert an entire session for of data using the NWBConverter."""
 
-import json
 import time
 from pathlib import Path
 
 from ibl_to_nwb.datainterfaces import RawVideoInterface
-from natsort import natsorted
-from ndx_ibl import IblMetadata, IblSubject
+from ndx_ibl import IblSubject
 from neuroconv.utils import dict_deep_update, load_dict_from_file
 from one.api import ONE
 from pynwb import NWBFile
@@ -16,15 +14,16 @@ from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
     MesoscopeRawImagingInterface,
 )
 from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
+    get_available_tasks_from_raw_collections,
+    get_number_of_FOVs_from_raw_imaging_metadata,
     sanitize_subject_id_for_dandi,
-    setup_paths,
 )
 
 
 def convert_raw_session(
     eid: str,
     one: ONE,
-    base_path: Path,
+    output_path: Path,
     stub_test: bool = False,
     append_on_disk_nwbfile: bool = False,
     verbose: bool = True,
@@ -41,8 +40,8 @@ def convert_raw_session(
         If True, creates minimal NWB for testing without downloading large files.
         In stub mode, spike properties (spike_amplitudes, spike_distances_from_probe_tip)
         are automatically skipped to reduce memory usage.
-    base_path : Path, optional
-        Base output directory for NWB files
+    output_path : Path, optional
+        Base output directory for NWB files.
     append_on_disk_nwbfile: bool, optional
         If True, append to an existing on-disk NWB file instead of creating a new one.
     Returns
@@ -54,7 +53,6 @@ def convert_raw_session(
         print(f"Starting RAW conversion for session {eid}...")
     # Setup paths
     start_time = time.time()
-    paths = setup_paths(one, eid, base_path=base_path)
 
     session_info = one.alyx.rest("sessions", "read", id=eid)
     subject_nickname = session_info.get("subject")
@@ -63,11 +61,12 @@ def convert_raw_session(
     if not subject_nickname:
         subject_nickname = "unknown"
 
-    # New structure: nwbfiles/{full|stub}/sub-{subject}/*.nwb
-    conversion_type = "stub" if stub_test else "full"
     # Sanitize subject nickname for DANDI compliance (replace underscores with hyphens)
     subject_id_for_filenames = sanitize_subject_id_for_dandi(subject_nickname)
-    output_dir = Path(paths["output_folder"]) / conversion_type / f"sub-{subject_id_for_filenames}"
+
+    # New structure: nwbfiles/{full|stub}/sub-{subject}/*.nwb
+    conversion_mode = "stub" if stub_test else "full"
+    output_dir = output_path / conversion_mode / f"sub-{subject_id_for_filenames}"
     output_dir.mkdir(parents=True, exist_ok=True)
     nwbfile_path = output_dir / f"sub-{subject_id_for_filenames}_ses-{eid}_desc-raw_behavior+ophys.nwb"
 
@@ -83,50 +82,17 @@ def convert_raw_session(
     conversion_options = dict()
     interface_kwargs = dict(one=one, session=eid)
 
+    number_of_FOVs = get_number_of_FOVs_from_raw_imaging_metadata(one, eid) if not stub_test else 2
+    tasks = get_available_tasks_from_raw_collections(one, eid)
     # Add raw imaging data
-    raw_imaging_collections = one.list_collections(
-        eid=eid,
-        filename="*raw_imaging_data*",
-    )
-    photon_series_index = 0
-    for raw_imaging_collection in raw_imaging_collections:
-        if "reference" in raw_imaging_collection:
-            continue  # Skip reference imaging data
-        task = "Task" + raw_imaging_collection.split("raw_imaging_data_")[-1]
-        raw_imaging_folder = Path(paths["session_folder"]) / raw_imaging_collection / "imaging.frames"
-        raw_imaging_metadata_path = (
-            Path(paths["session_folder"]) / raw_imaging_collection / "_ibl_rawImagingData.meta.json"
+    for task, FOV_index in zip(tasks, range(number_of_FOVs)):
+        data_interfaces[f"Task{task}FOV{FOV_index}RawImaging"] = MesoscopeRawImagingInterface(
+            **interface_kwargs, FOV_index=FOV_index, task=task, verbose=verbose
         )
-        # TODO add function to get number of FOVs
-        with open(raw_imaging_metadata_path, "r") as f:
-            raw_metadata = json.load(f)
-            num_planes = 2 if stub_test else len(raw_metadata["FOV"])
-            FOV_names = [f"FOV_{i:02d}" for i in range(num_planes)]
-
-        tiff_files = natsorted(raw_imaging_folder.glob(f"*.tif"))
-        for FOV_index, FOV_name in enumerate(FOV_names):  # Limiting to first 2 FOVs for testing
-            data_interfaces[f"{task}{FOV_name}RawImaging"] = MesoscopeRawImagingInterface(
-                file_paths=tiff_files, plane_index=FOV_index, channel_name="Channel 1", FOV_name=FOV_name, task=task
-            )
-            conversion_options.update(
-                {f"{task}{FOV_name}RawImaging": dict(stub_test=stub_test, photon_series_index=photon_series_index)}
-            )
-            photon_series_index += 1
-
+        conversion_options.update(
+            {f"Task{task}FOV{FOV_index}RawImaging": dict(stub_test=stub_test, photon_series_index=FOV_index)}
+        )
     # Add raw behavioral video
-    # Raw video interfaces
-    # In stub mode, only include videos if already downloaded (avoid triggering large downloads)
-    # In full mode, always include videos (they will be downloaded if needed)
-    metadata_retrieval = RawMesoscopeNWBConverter(one=one, session=eid, data_interfaces=[], verbose=False)
-    subject_id_from_metadata = metadata_retrieval.get_metadata()["Subject"]["subject_id"]
-    # Sanitize subject ID for DANDI-compliant filenames
-    subject_id_for_video_paths = sanitize_subject_id_for_dandi(subject_id_from_metadata)
-
-    # Video files should be organized alongside NWB files
-    # In stub mode: nwbfiles/stub/sub-{subject}/, in full mode: nwbfiles/full/sub-{subject}/
-    conversion_mode = "stub" if stub_test else "full"
-    video_base_path = Path(paths["output_folder"]) / conversion_mode
-
     # Add video interfaces for cameras that have timestamps
     # Check all camera types (left, right, body)
     for camera_view in ["left", "right", "body"]:
@@ -172,10 +138,9 @@ def convert_raw_session(
 
         # Add video interface
         data_interfaces[f"{camera_name}RawVideoInterface"] = RawVideoInterface(
-            nwbfiles_folder_path=video_base_path,
-            subject_id=subject_id_for_video_paths,
-            one=one,
-            session=eid,
+            **interface_kwargs,
+            nwbfiles_folder_path=output_dir,  # Video files should be organized alongside NWB files
+            subject_id=subject_id_for_filenames,
             camera_name=camera_view,
         )
     interface_creation_time = time.time() - interface_creation_start
@@ -185,7 +150,7 @@ def convert_raw_session(
     # ========================================================================
     # STEP 2: Create converter
     # ========================================================================
-    converter = RawMesoscopeNWBConverter(one=one, session=eid, data_interfaces=data_interfaces)
+    converter = RawMesoscopeNWBConverter(**interface_kwargs, data_interfaces=data_interfaces)
 
     # ========================================================================
     # STEP 3: Get metadata
@@ -255,7 +220,7 @@ if __name__ == "__main__":
         eid="5ce2e17e-8471-42d4-8a16-21949710b328",
         one=ONE(),  # base_url="https://alyx.internationalbrainlab.org"
         stub_test=True,
-        base_path=Path("E:/IBL-data-share"),
+        output_path=Path("E:/IBL-data-share/IBL-mesoscope-nwbfiles"),
         append_on_disk_nwbfile=False,
         verbose=True,
     )

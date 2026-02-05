@@ -1,24 +1,21 @@
-import json
 from copy import deepcopy
 from pathlib import Path
-from typing import Literal, Optional
-from one.api import ONE
+from typing import Literal
 
 from ibl_to_nwb.datainterfaces._base_ibl_interface import BaseIBLDataInterface
 from neuroconv.datainterfaces.ophys.baseimagingextractorinterface import (
     BaseImagingExtractorInterface,
 )
 from neuroconv.utils import DeepDict, dict_deep_update, load_dict_from_file
-from pydantic import FilePath
+from one.api import ONE
 from pynwb import NWBFile
 
 from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
     MesoscopeRawImagingExtractor,
 )
-
 from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
-    get_number_of_FOVs_from_raw_imaging_metadata,
     get_available_tasks_from_raw_collections,
+    get_number_of_FOVs_from_raw_imaging_metadata,
 )
 
 
