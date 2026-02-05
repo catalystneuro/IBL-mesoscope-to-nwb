@@ -11,9 +11,12 @@ from typing import List
 import numpy as np
 import sparse
 from one.api import ONE
-from roiextractors import SegmentationExtractor
 from roiextractors.extraction_tools import _image_mask_extractor
-from roiextractors.segmentationextractor import _RoiResponse
+from roiextractors.segmentationextractor import (
+    SegmentationExtractor,
+    _ROIMasks,
+    _RoiResponse,
+)
 
 
 class MesoscopeSegmentationExtractor(SegmentationExtractor):
@@ -112,38 +115,14 @@ class MesoscopeSegmentationExtractor(SegmentationExtractor):
                 id=self.session, dataset="mpciROIs.stackPos", collection=f"alf/{self.FOV_name}"
             )
             self.roi_locations = roi_locations if roi_ids is None else roi_locations[roi_ids]
-        return self.roi_locations
+        return self.roi_locations.T
 
-    def get_roi_pixel_masks(self, roi_ids=None) -> list[np.ndarray]:
-        """Get the pixel masks for the specified ROIs in sparse format.
-
-        Parameters
-        ----------
-        roi_ids : array-like, optional
-            List of ROI IDs to get the pixel masks for. If None, all ROIs are returned.
-
-        Returns
-        -------
-        pixel_masks : list[np.ndarray]
-            List of arrays, where each array is of shape (n_pixels, 3) with columns [y, x, weight].
-            Each row represents a pixel in the ROI mask with its y-coordinate, x-coordinate, and weight.
-
-        Notes
-        -----
-        The IBL format uses pydata/sparse library (not scipy.sparse) to save masks with sparse.save_npz().
-        The masks are stored as a 3D array with shape (num_rois, Ly, Lx).
-        """
-
+    def _create_rois_masks(self) -> _ROIMasks:
         masks = self.one.load_dataset(id=self.session, dataset="mpciROIs.masks", collection=f"alf/{self.FOV_name}")
-
-        # Determine which ROIs to process
-        if roi_ids is None:
-            roi_indices = range(self.get_num_rois())
-        else:
-            roi_indices = roi_ids
-
         pixel_masks = []
-        for roi_idx in roi_indices:
+        roi_id_map = {}
+        cell_ids = list(range(masks.shape[0]))
+        for roi_idx in cell_ids:
             # Get the 2D mask for this ROI
             roi_mask = masks[roi_idx]  # shape: (Ly, Lx)
 
@@ -159,11 +138,75 @@ class MesoscopeSegmentationExtractor(SegmentationExtractor):
             pixel_mask = np.vstack([y_coords, x_coords, weights]).T
             pixel_masks.append(pixel_mask)
 
+            roi_id_map[roi_idx] = roi_idx
+
+        # Process background components if available
+        if self.add_background:
+            neuropil_masks = self.one.load_dataset(
+                id=self.session, dataset="mpciROIs.neuropilMasks.masks", collection=f"alf/{self.FOV_name}"
+            )
+            background_ids = list(range(neuropil_masks.shape[0]))
+            for bg_idx in background_ids:
+                # Get the 2D mask for this background ROI
+                bg_mask = neuropil_masks[bg_idx]  # shape: (Ly, Lx)
+
+                # Convert to COO format to get coordinates and weights
+                bg_mask_coo = sparse.COO(bg_mask)
+
+                # Extract y, x coordinates and weights
+                y_coords = bg_mask_coo.coords[0]
+                x_coords = bg_mask_coo.coords[1]
+                weights = bg_mask_coo.data
+
+                # Stack into (n_pixels, 3) array: [y, x, weight]
+                pixel_mask = np.vstack([y_coords, x_coords, weights]).T
+                pixel_masks.append(pixel_mask)
+                bg_id = f"background{bg_idx}"
+                roi_id_map[bg_id] = len(pixel_masks) - 1
+
+        self._roi_masks = _ROIMasks(
+            data=pixel_masks,
+            mask_tpe="nwb-pixel_mask",
+            field_of_view_shape=self.get_frame_shape(),
+            roi_id_map=roi_id_map,
+        )
+        return self._roi_masks
+
+    def get_roi_pixel_masks(self, roi_ids=None) -> np.array:
+        """Get the weights applied to each of the pixels of the mask.
+
+        Parameters
+        ----------
+        roi_ids: array_like
+            A list or 1D array of ids of the ROIs. Length is the number of ROIs requested.
+
+        Returns
+        -------
+        pixel_masks: list
+            List of length number of rois, each element is a 2-D array with shape (number_of_non_zero_pixels, 3).
+            Columns 1 and 2 are the x and y coordinates of the pixel, while the third column represents the weight of
+            the pixel.
+        """
+        if roi_ids is None:
+            roi_ids = self.get_roi_ids()
+
+        if self._roi_masks is None:
+            self._roi_masks = self._create_rois_masks()
+
+        # Filter to only cell ROIs (exclude background)
+        cell_roi_ids = [rid for rid in roi_ids if not str(rid).startswith("background")]
+
+        # Get pixel masks from representations
+        pixel_masks = []
+        for roi_id in cell_roi_ids:
+            pixel_mask = self._roi_masks.get_roi_pixel_mask(roi_id)
+            pixel_masks.append(pixel_mask)
+
         return pixel_masks
 
     def get_roi_image_masks(self, roi_ids=None) -> np.ndarray:
         self._image_masks = _image_mask_extractor(
-            self.get_roi_pixel_masks(),
+            self.get_roi_pixel_masks(roi_ids),
             roi_ids if roi_ids is not None else list(range(self.get_num_rois())),
             self.get_frame_shape(),
         )
@@ -188,34 +231,20 @@ class MesoscopeSegmentationExtractor(SegmentationExtractor):
         The IBL format uses pydata/sparse library (not scipy.sparse) to save masks with sparse.save_npz().
         The neuropil masks are stored as a 3D array with shape (num_background_rois, Ly, Lx).
         """
-        if not self.add_background:
-            return []
-
-        neuropil_masks = self.one.load_dataset(
-            id=self.session, dataset="mpciROIs.neuropilMasks.masks", collection=f"alf/{self.FOV_name}"
-        )
-
         # Determine which background ROIs to process
         if background_ids is None:
-            background_indices = range(self.get_num_background_components())
-        else:
-            background_indices = background_ids
+            background_ids = range(self.get_num_background_components())
 
+        if self._roi_masks is None:
+            self._roi_masks = self._create_rois_masks()
+
+        # Filter to only background ROIs
+        background_roi_ids = [rid for rid in background_ids if str(rid).startswith("background")]
+
+        # Get pixel masks from representations
         pixel_masks = []
-        for bg_idx in background_indices:
-            # Get the 2D mask for this background ROI
-            bg_mask = neuropil_masks[bg_idx]  # shape: (Ly, Lx)
-
-            # Convert to COO format to get coordinates and weights
-            bg_mask_coo = sparse.COO(bg_mask)
-
-            # Extract y, x coordinates and weights
-            y_coords = bg_mask_coo.coords[0]
-            x_coords = bg_mask_coo.coords[1]
-            weights = bg_mask_coo.data
-
-            # Stack into (n_pixels, 3) array: [y, x, weight]
-            pixel_mask = np.vstack([y_coords, x_coords, weights]).T
+        for roi_id in background_roi_ids:
+            pixel_mask = self._roi_masks.get_roi_pixel_mask(roi_id)
             pixel_masks.append(pixel_mask)
 
         return pixel_masks
@@ -228,7 +257,7 @@ class MesoscopeSegmentationExtractor(SegmentationExtractor):
         )
         return self._background_image_masks
 
-    def _get_rois_responses(self) -> List[_RoiResponse]:
+    def _create_rois_responses(self) -> List[_RoiResponse]:
         """Load the ROI responses from the Suite2p output files.
         Returns
         -------
@@ -282,7 +311,7 @@ class MesoscopeSegmentationExtractor(SegmentationExtractor):
                 Raw Fluorescence, DeltaFOverF, Denoised, Neuropil, Deconvolved, Background, etc.
         """
         if not self._roi_responses:
-            self._get_rois_responses()
+            self._create_rois_responses()
 
         traces = {response.response_type: response.data for response in self._roi_responses}
         return traces
