@@ -59,7 +59,7 @@ class MesoscopeMotionCorrectedImagingInterface(BaseIBLDataInterface, BaseImaging
             "exact_files_options": {
                 "standard": [
                     f"alf/{FOV_name}/mpci.times.npy",
-                    f"suite2p/{plane_name}/imaging.frames_motionRegistered.bin",
+                    f"suite2/{plane_name}/imaging.frames_motionRegistered.bin",
                 ]
             },
         }
