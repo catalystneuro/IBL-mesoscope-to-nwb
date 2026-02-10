@@ -1,30 +1,32 @@
-from ._ibl_mesoscope_anatomical_localization_interface import (
-    IBLMesoscopeAnatomicalLocalizationInterface,
+from ._meso_anatomical_localization_interfaces import (
+    MesoscopeImageAnatomicalLocalizationInterface,
+    MesoscopeROIAnatomicalLocalizationInterface,
 )
-from ._ibl_mesoscope_mc_imaging_extractor import (
-    IBLMesoscopeMotionCorrectedImagingExtractor,
+from ._meso_mc_imaging_extractor import (
+    MesoscopeMotionCorrectedImagingExtractor,
 )
-from ._ibl_mesoscope_mc_imaging_interface import (
-    IBLMesoscopeMotionCorrectedImagingInterface,
+from ._meso_mc_imaging_interface import (
+    MesoscopeMotionCorrectedImagingInterface,
 )
-from ._ibl_mesoscope_raw_imaging_extractor import IBLMesoscopeRawImagingExtractor
-from ._ibl_mesoscope_raw_imaging_interface import IBLMesoscopeRawImagingInterface
-from ._ibl_mesoscope_segmentation_extractor import IBLMesoscopeSegmentationExtractor
-from ._ibl_mesoscope_segmentation_interface import IBLMesoscopeSegmentationInterface
-from .ibl_mesoscope_wheel_interfaces import (
+from ._meso_raw_imaging_extractor import MesoscopeRawImagingExtractor
+from ._meso_raw_imaging_interface import MesoscopeRawImagingInterface
+from ._meso_segmentation_extractor import MesoscopeSegmentationExtractor
+from ._meso_segmentation_interface import MesoscopeSegmentationInterface
+from ._meso_wheel_interfaces import (
     MesoscopeWheelKinematicsInterface,
     MesoscopeWheelMovementsInterface,
     MesoscopeWheelPositionInterface,
 )
 
 __all__ = [
-    "IBLMesoscopeRawImagingInterface",
-    "IBLMesoscopeRawImagingExtractor",
-    "IBLMesoscopeSegmentationExtractor",
-    "IBLMesoscopeSegmentationInterface",
-    "IBLMesoscopeMotionCorrectedImagingExtractor",
-    "IBLMesoscopeMotionCorrectedImagingInterface",
-    "IBLMesoscopeAnatomicalLocalizationInterface",
+    "MesoscopeRawImagingInterface",
+    "MesoscopeRawImagingExtractor",
+    "MesoscopeSegmentationExtractor",
+    "MesoscopeSegmentationInterface",
+    "MesoscopeMotionCorrectedImagingExtractor",
+    "MesoscopeMotionCorrectedImagingInterface",
+    "MesoscopeROIAnatomicalLocalizationInterface",
+    "MesoscopeImageAnatomicalLocalizationInterface",
     "MesoscopeWheelKinematicsInterface",
     "MesoscopeWheelMovementsInterface",
     "MesoscopeWheelPositionInterface",

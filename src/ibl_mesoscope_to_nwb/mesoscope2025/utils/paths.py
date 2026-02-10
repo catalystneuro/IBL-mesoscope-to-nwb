@@ -1,9 +1,7 @@
 """Path utilities for IBL-to-NWB conversion."""
 
-import shutil
 from pathlib import Path
 
-from one.alf.spec import is_uuid_string
 from one.api import ONE
 
 

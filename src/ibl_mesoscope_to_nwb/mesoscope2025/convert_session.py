@@ -13,7 +13,7 @@ from ibl_mesoscope_to_nwb.mesoscope2025.conversion import (
 
 
 def session_to_nwb(
-    base_path: Path,
+    output_path: Path,
     eid: str,
     mode: Literal["processed", "raw"],
     stub_test: bool = False,
@@ -25,8 +25,8 @@ def session_to_nwb(
 
     Parameters
     ----------
-    base_path : Path
-        Base path to the directory containing the session data.
+    output_path : Path
+        Base path to the directory where the NWB files will be saved.
     eid : str
         The experiment ID (session ID) for the session.
     mode : Literal["processed", "raw"]
@@ -44,7 +44,7 @@ def session_to_nwb(
                 eid=eid,
                 one=ONE(),  # base_url="https://alyx.internationalbrainlab.org"
                 stub_test=stub_test,
-                base_path=base_path,
+                output_path=output_path / "processed",
                 append_on_disk_nwbfile=append_on_disk_nwbfile,
                 verbose=verbose,
             )
@@ -54,7 +54,7 @@ def session_to_nwb(
                 eid=eid,
                 one=ONE(),  # base_url="https://alyx.internationalbrainlab.org"
                 stub_test=stub_test,
-                base_path=base_path,
+                output_path=output_path / "raw",
                 append_on_disk_nwbfile=append_on_disk_nwbfile,
                 verbose=verbose,
             )
@@ -63,20 +63,30 @@ def session_to_nwb(
 
 
 if __name__ == "__main__":
-
+    eids = [
+        "5ce2e17e-8471-42d4-8a16-21949710b328",
+        "42d7e11e-3185-4a79-a6ad-bbaf47366db2",
+        "4693e7cc-17f6-4eeb-8abb-5951ba82b601",
+        "e7c3df94-ef2a-44ed-a8e3-9d1a995b54f9",
+        "c13eb6d3-09f5-49f7-bd89-26fce25ff65f",
+        "1e558505-7d94-4851-83ef-edb2844ee805",
+        "6f12a581-2203-4cd3-97b4-cd9cd78b440e",
+    ]
     # Parameters for conversion
-    data_dir_path = Path(r"E:\IBL-data-share\cortexlab\Subjects\SP061\2025-01-28\001")
-    output_dir_path = Path(r"E:\ibl_mesoscope_conversion_nwb")
-    eid = "5ce2e17e-8471-42d4-8a16-21949710b328"
+    output_path = Path("E:/IBL-mesoscope-nwbfiles")
     stub_test = True  # Set to True for a quick test conversion with limited data
-    start_time = time.time()
     mode = "processed"  # Choose between 'processed' and 'raw'
-    session_to_nwb(
-        base_path=Path("E:/IBL-data-share"),
-        eid=eid,
-        mode=mode,
-        stub_test=stub_test,
-        append_on_disk_nwbfile=False,
-        verbose=True,
-    )
-    print(f"Conversion completed in {time.time() - start_time:.2f} seconds.")
+    for eid in eids:
+        start_time = time.time()
+        try:
+            session_to_nwb(
+                output_path=output_path,
+                eid=eid,
+                mode=mode,
+                stub_test=stub_test,
+                append_on_disk_nwbfile=False,
+                verbose=True,
+            )
+            print(f"Conversion completed in {time.time() - start_time:.2f} seconds.")
+        except Exception as e:
+            print(f"Conversion failed for eid {eid} with error: {e}")
