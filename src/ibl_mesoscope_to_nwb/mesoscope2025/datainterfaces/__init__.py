@@ -2,6 +2,7 @@ from ._meso_anatomical_localization_interfaces import (
     MesoscopeImageAnatomicalLocalizationInterface,
     MesoscopeROIAnatomicalLocalizationInterface,
 )
+from ._meso_DAQ_interface import MesoscopeDAQInterface
 from ._meso_mc_imaging_extractor import (
     MesoscopeMotionCorrectedImagingExtractor,
 )
@@ -30,4 +31,5 @@ __all__ = [
     "MesoscopeWheelKinematicsInterface",
     "MesoscopeWheelMovementsInterface",
     "MesoscopeWheelPositionInterface",
+    "MesoscopeDAQInterface",
 ]
