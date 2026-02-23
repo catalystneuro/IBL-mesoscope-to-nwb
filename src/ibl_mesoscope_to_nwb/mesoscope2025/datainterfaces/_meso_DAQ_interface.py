@@ -325,6 +325,9 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
         if stub_test:
             data = timeline["raw"][:10000, :]
             # timestamps = timeline["timestamps"][:10000, :]
+        else:
+            data = timeline["raw"][:, :]
+            # timestamps = timeline["timestamps"][:, :]
 
         # Add devices
         device_metadata = metadata.get("Devices", [])

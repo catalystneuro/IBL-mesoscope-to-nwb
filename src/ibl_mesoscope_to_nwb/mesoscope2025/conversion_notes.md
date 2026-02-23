@@ -264,3 +264,388 @@ The extractor performs validation to ensure data integrity:
 - **Filler pixel consistency**: Ensures filler pixels are evenly distributed (must be integer value)
 
 This approach allows efficient extraction of individual FOV data from multi-tile TIFF files without loading the entire dataset into memory.
+
+## NWB Conversion Architecture
+
+### Overview
+
+The IBL mesoscope data is converted to NWB format through two complementary pipelines:
+
+1. **Raw Pipeline** (`raw.py`) - Converts raw acquisition data (imaging, videos, DAQ)
+2. **Processed Pipeline** (`processed.py`) - Converts analyzed data (segmentation, tracking, behavior)
+
+Both pipelines produce BIDS-compliant NWB files following the naming convention:
+```
+sub-{subject}/sub-{subject}_ses-{eid}_desc-{raw|processed}_behavior+ophys.nwb
+```
+
+### Conversion Pipelines Comparison
+
+| Data Stream | Raw Pipeline | Processed Pipeline | NWB Container |
+|-------------|--------------|-------------------|---------------|
+| **Optical Physiology** |
+| Raw imaging (TIFF) | ✓ | | `TwoPhotonSeries` (acquisition) |
+| Motion-corrected imaging | | ✓ | `TwoPhotonSeries` (processing/ophys) |
+| Segmentation (ROIs) | | ✓ | `PlaneSegmentation` (processing/ophys) |
+| ROI anatomical localization | | ✓ | `AnatomicalCoordinatesTable` (lab_meta_data) |
+| Mean image localization | | ✓ | `AnatomicalCoordinatesImage` (lab_meta_data) |
+| **Behavioral Tasks** |
+| Trials (task events) | | ✓ | `TimeIntervals["trials"]` |
+| Wheel position | | ✓ | `SpatialSeries` (processing/behavior) |
+| Wheel kinematics | | ✓ | `TimeSeries` (processing/behavior) |
+| Wheel movements | | ✓ | `TimeIntervals` (processing/behavior) |
+| Licks | | ✓ | `Events` (processing/behavior) |
+| Session epochs | | ✓ | `TimeIntervals` (intervals) |
+| Passive intervals | | ✓ | `TimeIntervals` (intervals) |
+| Passive replay stimuli | | ✓ | `TimeIntervals` (intervals) |
+| **Camera Data** |
+| Raw videos | ✓ | | `ImageSeries` (acquisition) |
+| Pose estimation | | ✓ | `PoseEstimation` (processing/behavior) |
+| Pupil tracking | | ✓ | `TimeSeries` (processing/behavior) |
+| ROI motion energy | | ✓ | `TimeSeries` (processing/behavior) |
+| **Synchronization** |
+| DAQ board signals | ✓ | | `TimeSeries`/`LabeledEvents` (acquisition) |
+
+### Data Flow Diagrams
+
+#### Raw Pipeline Data Flow
+
+```
+SOURCE DATA                          INTERFACE                              NWB CONTAINER
+
+raw_imaging_data_XX/
+├── imaging.frames/*.tif      ──→  MesoscopeRawImagingInterface      ──→  TwoPhotonSeries
+└── rawImagingData.times...                                                (acquisition)
+
+raw_sync_data/
+├── _timeline_DAQdata.raw.npy  ──→  MesoscopeDAQInterface           ──→  TimeSeries (analog)
+├── _timeline_DAQdata.timestamps                                          LabeledEvents (digital)
+└── _timeline_DAQdata.meta.json                                           (acquisition)
+
+raw_video_data/
+├── _iblrig_leftCamera.raw.mp4  ──→  RawVideoInterface (left)      ──→  ImageSeries
+├── _iblrig_rightCamera.raw.mp4 ──→  RawVideoInterface (right)     ──→  (acquisition)
+└── _iblrig_bodyCamera.raw.mp4  ──→  RawVideoInterface (body)
+
+alf/
+└── _ibl_*Camera.times.npy     ──→  (timestamps for videos)
+```
+
+#### Processed Pipeline Data Flow
+
+```
+SOURCE DATA                          INTERFACE                              NWB CONTAINER
+
+OPTICAL PHYSIOLOGY
+──────────────────
+suite2p/planeX/
+├── imaging.frames_motion...bin ──→  MesoscopeMotionCorrected...    ──→  TwoPhotonSeries
+└── (binary format)                                                       (processing/ophys)
+
+alf/FOV_XX/
+├── mpci.ROIActivityF.npy       ──→  MesoscopeSegmentation...       ──→  PlaneSegmentation
+├── mpci.ROIActivityDeconv.npy                                            RoiResponseSeries
+├── mpciROIs.masks.sparse_npz                                             (processing/ophys)
+├── mpciMeanImage.images.npy
+└── ... (ROI data)
+
+alf/FOV_XX/
+├── mpciROIs.mlapdv_estimate... ──→  MesoscopeROIAnatomical...     ──→  AnatomicalCoordinatesTable
+├── mpciROIs.brainLocationIds...                                         (lab_meta_data/localization)
+├── mpciMeanImage.mlapdv_est... ──→  MesoscopeImageAnatomical...   ──→  AnatomicalCoordinatesImage
+└── mpciMeanImage.brainLoc...                                            (lab_meta_data/localization)
+
+BEHAVIORAL TASKS
+────────────────
+alf/task_XX/
+├── _ibl_trials.*.npy           ──→  BrainwideMapTrialsInterface   ──→  TimeIntervals["trials"]
+├── wheel.position.npy          ──→  MesoscopeWheelPosition...     ──→  SpatialSeries
+├── wheel.velocity.npy          ──→  MesoscopeWheelKinematics...   ──→  TimeSeries
+├── wheel.acceleration.npy                                               (processing/behavior)
+├── wheelMoves.*.npy            ──→  MesoscopeWheelMovements...    ──→  TimeIntervals
+└── licks.times.npy             ──→  LickInterface                 ──→  Events
+
+alf/
+├── passiveGabor.table.csv      ──→  PassiveReplayStimInterface    ──→  TimeIntervals (intervals)
+└── passivePeriods.*.npy        ──→  PassiveIntervalsInterface     ──→  TimeIntervals (intervals)
+
+CAMERA-BASED PROCESSING
+───────────────────────
+alf/
+├── _ibl_*Camera.dlc.pqt        ──→  IblPoseEstimationInterface    ──→  PoseEstimation
+│   (or .lightningPose.pqt)                                              (processing/behavior)
+├── _ibl_*Camera.features.pqt   ──→  PupilTrackingInterface        ──→  TimeSeries (pupils)
+└── *Camera.ROIMotionEnergy.npy ──→  RoiMotionEnergyInterface      ──→  TimeSeries (motion)
+```
+
+### Optical Physiology Data Streams
+
+#### Raw Imaging (TwoPhotonSeries in acquisition)
+
+**Source Files:**
+- `raw_imaging_data_{task}/imaging.frames/*.tif` - ScanImage TIFF files
+- `raw_imaging_data_{task}/rawImagingData.times_scanImage.npy` - Frame timestamps
+- `raw_imaging_data_{task}/_ibl_rawImagingData.meta.json` - ScanImage metadata
+
+**Processing:**
+- Handles ScanImage "Tiled" display mode where multiple FOVs are stacked vertically in single frames
+- Extracts individual FOVs using `FOV_index` parameter
+- Overrides extractor timestamps with synchronized Timeline timestamps
+
+**NWB Output:**
+- One `TwoPhotonSeries` per FOV per task
+- Naming: `TwoPhotonSeriesFOV{XX}Task{YY}`
+- Located in: `nwbfile.acquisition`
+- Linked to: `ImagingPlaneFOV{XX}` with device, grid spacing, imaging rate metadata
+
+#### Motion-Corrected Imaging (TwoPhotonSeries in processing)
+
+**Source Files:**
+- `suite2p/plane{X}/imaging.frames_motionRegistered.bin` - Suite2p binary format
+- `alf/FOV_{XX}/mpci.times.npy` - Frame timestamps
+- `alf/FOV_{XX}/mpciMeanImage.images.npy` - Mean projection for frame dimensions
+
+**Processing:**
+- Memory-mapped access to binary data (int16 format)
+- Shape: (num_frames, height, width)
+- Validates file size against expected dimensions
+
+**NWB Output:**
+- One `TwoPhotonSeries` per FOV
+- Naming: `TwoPhotonSeriesFOV{XX}`
+- Located in: `nwbfile.processing["ophys"]`
+- Linked to same `ImagingPlaneFOV{XX}` as raw data
+
+#### Segmentation (PlaneSegmentation & RoiResponseSeries)
+
+**Source Files:**
+- `alf/FOV_{XX}/mpciROIs.masks.sparse_npz` - ROI pixel masks (pydata/sparse format)
+- `alf/FOV_{XX}/mpciROIs.neuropilMasks.sparse_npz` - Neuropil masks (optional)
+- `alf/FOV_{XX}/mpci.ROIActivityF.npy` - Fluorescence traces
+- `alf/FOV_{XX}/mpci.ROIActivityDeconvolved.npy` - Deconvolved activity
+- `alf/FOV_{XX}/mpci.ROIActivityFNeuropil.npy` - Neuropil traces (optional)
+- `alf/FOV_{XX}/mpciROIs.cellClassifier.npy` - Cell quality scores
+- `alf/FOV_{XX}/mpciROIs.mpciROITypes.npy` - Cell vs non-cell classification
+- `alf/FOV_{XX}/mpciROIs.uuids.csv` - Unique ROI identifiers
+- `alf/FOV_{XX}/mpciROIs.stackPos.npy` - ROI centroid positions
+
+**Processing:**
+- Converts sparse masks from pydata/sparse COO format to NWB pixel_mask format
+- Separates accepted (cell) vs rejected (non-cell) ROIs
+- Adds custom properties: cell_classifier, UUID
+
+**NWB Output:**
+- `PlaneSegmentation` table: `PlaneSegmentationFOV{XX}`
+  - Pixel masks for each ROI
+  - ROI locations (x, y, z)
+  - Cell classifier scores
+  - UUID identifiers
+  - Background (neuropil) components
+- `RoiResponseSeries`:
+  - `RoiResponseSeriesRawFOV{XX}` - Fluorescence traces
+  - `RoiResponseSeriesDeconvolvedFOV{XX}` - Deconvolved activity
+  - `RoiResponseSeriesNeuropilFOV{XX}` - Background traces (if available)
+- Summary images: Mean projection in `SegmentationImages` container
+- Located in: `nwbfile.processing["ophys"]`
+
+#### Anatomical Localization (ndx-anatomical-localization)
+
+**Source Files for ROIs:**
+- `alf/FOV_{XX}/mpciROIs.mlapdv_estimate.npy` - ML, AP, DV coordinates (µm)
+- `alf/FOV_{XX}/mpciROIs.brainLocationIds_ccf_2017_estimate.npy` - Allen CCF 2017 region IDs
+
+**Source Files for Mean Images:**
+- `alf/FOV_{XX}/mpciMeanImage.mlapdv_estimate.npy` - Per-pixel coordinates
+- `alf/FOV_{XX}/mpciMeanImage.brainLocationIds_ccf_2017_estimate.npy` - Per-pixel region IDs
+
+**Processing:**
+- Uses ndx-anatomical-localization extension
+- Defines IBL-Bregma coordinate space (RAS orientation, µm units)
+- Links to existing PlaneSegmentation or mean image objects
+
+**NWB Output:**
+- `Localization` container in `nwbfile.lab_meta_data`
+- `Space` object: IBL-Bregma coordinate system
+- `AnatomicalCoordinatesTable`: ROI coordinates and brain region IDs
+  - Naming: `ROIsIBLBregmaAnatomicalCoordinatesFOV{XX}`
+  - Links to: `PlaneSegmentationFOV{XX}`
+- `AnatomicalCoordinatesImage`: Mean image coordinates
+  - Naming: `MeanImageIBLBregmaAnatomicalCoordinatesFOV{XX}`
+  - Per-pixel coordinates and brain region IDs
+
+### Behavioral Data Streams
+
+#### Trials (TimeIntervals)
+
+**Source Files:**
+- `alf/task_{XX}/_ibl_trials.{column}.npy` - Multiple files, one per column
+
+**Key Trial Columns:**
+- Timing: `stimOn_times`, `stimOff_times`, `goCue_times`, `response_times`, `feedback_times`, `firstMovement_times`
+- Stimuli: `contrastLeft`, `contrastRight`, `probabilityLeft`
+- Responses: `choice` (-1=CCW, 0=no-go, 1=CW)
+- Outcomes: `feedbackType` (+1=correct, -1=incorrect), `rewardVolume`
+- Quality: `included` (boolean mask for quality trials)
+
+**NWB Output:**
+- `TimeIntervals` table: `nwbfile.trials`
+- Each column becomes a trials table column with descriptive metadata
+- Custom columns defined in `_metadata/trials.yml`
+
+#### Wheel Behavior
+
+**Source Files (per task):**
+- `alf/task_{XX}/wheel.position.npy` - Angular position (radians)
+- `alf/task_{XX}/wheel.velocity.npy` - Angular velocity (rad/s)
+- `alf/task_{XX}/wheel.acceleration.npy` - Angular acceleration (rad/s²)
+- `alf/task_{XX}/wheel.timestamps.npy` - Sample times
+- `alf/task_{XX}/wheelMoves.intervals.npy` - Movement onset/offset times
+- `alf/task_{XX}/wheelMoves.peakAmplitude.npy` - Movement amplitudes
+
+**NWB Output:**
+- `SpatialSeries`: Wheel position (processing/behavior)
+  - Naming: `Task{XX}WheelPosition`
+  - Description in `_metadata/wheel.yml`
+- `TimeSeries`: Velocity and acceleration (processing/behavior)
+  - Naming: `Task{XX}WheelVelocity`, `Task{XX}WheelAcceleration`
+- `TimeIntervals`: Detected movements (processing/behavior)
+  - Naming: `Task{XX}WheelMovements`
+  - Columns: start_time, stop_time, peak_amplitude
+
+#### Licks (Events)
+
+**Source Files:**
+- `alf/licks.times.npy` - Timestamps of lick events
+
+**NWB Output:**
+- `Events` object: Timestamped lick events
+- Located in: `nwbfile.processing["behavior"]`
+
+#### Session Structure
+
+**Session Epochs:**
+- Defines high-level task vs passive phases
+- Source: Derived from task metadata
+- Output: `TimeIntervals` in `nwbfile.intervals`
+
+**Passive Intervals:**
+- Source: `alf/passivePeriods.*.npy`
+- Output: `TimeIntervals` marking passive stimulus presentation periods
+
+**Passive Replay Stimuli:**
+- Source: `alf/passiveGabor.table.csv`
+- Output: `TimeIntervals` with stimulus parameters (contrast, position, phase)
+
+### Camera-Based Data Streams
+
+#### Raw Videos (ImageSeries)
+
+**Source Files (per camera):**
+- `raw_video_data/_iblrig_{camera}Camera.raw.mp4` - Compressed video
+- `alf/_ibl_{camera}Camera.times.npy` - Frame timestamps
+
+**Cameras:**
+- Left camera: 60 fps, 1280×1024 resolution
+- Right camera: 150 fps, 640×512 resolution  
+- Body camera: 60 fps, variable resolution
+
+**NWB Output:**
+- One `ImageSeries` per camera
+- Located in: `nwbfile.acquisition`
+- External video files (not embedded in NWB)
+
+#### Pose Estimation (PoseEstimation)
+
+**Source Files (per camera):**
+- `alf/_ibl_{camera}Camera.dlc.pqt` - DeepLabCut tracking (fallback)
+- `alf/_ibl_{camera}Camera.lightningPose.pqt` - Lightning Pose tracking (preferred)
+
+**Tracked Body Parts:**
+- Varies by camera view (eyes, nose, paws, tongue, etc.)
+- Each part has x, y coordinates and likelihood score
+
+**NWB Output:**
+- `PoseEstimation` container (ndx-pose extension)
+- Located in: `nwbfile.processing["behavior"]`
+- One per camera with all body parts
+
+#### Pupil Tracking (TimeSeries)
+
+**Source Files (left/right cameras only):**
+- `alf/_ibl_{camera}Camera.features.pqt` - Pupil diameter estimates
+
+**Measurements:**
+- `pupilDiameter_raw` - Raw diameter estimates
+- `pupilDiameter_smooth` - Smoothed and interpolated diameter
+
+**NWB Output:**
+- `TimeSeries`: `RawPupilDiameter`, `SmoothedPupilDiameter`
+- Located in: `nwbfile.processing["behavior"]`
+- Metadata defined in `_metadata/pupils.yml`
+
+#### ROI Motion Energy (TimeSeries)
+
+**Source Files (per camera):**
+- `alf/{camera}Camera.ROIMotionEnergy.npy` - Motion energy time series
+- `alf/{camera}ROIMotionEnergy.position.npy` - ROI position/size
+
+**NWB Output:**
+- `TimeSeries` per camera
+- Captures motion within defined ROI
+- Located in: `nwbfile.processing["behavior"]`
+
+### DAQ Synchronization Data Streams
+
+#### Timeline DAQ Board
+
+**Source Files:**
+- `raw_sync_data/_timeline_DAQdata.raw.npy` - Multi-channel analog recordings
+- `raw_sync_data/_timeline_DAQdata.timestamps.npy` - Start/end times
+- `raw_sync_data/_timeline_DAQdata.meta.json` - Channel wiring configuration
+
+**Channel Types:**
+
+**Analog Channels** (continuous signals):
+- `chrono` - Mesoscope frame sync (imaging timestamps)
+- `photoDiode` - Screen photodiode (visual stimulus timing)
+- `GalvoX`, `GalvoY` - Galvo mirror positions
+- `RemoteFocus1`, `RemoteFocus2` - Z-focus control
+- `LaserPower` - Laser power modulation
+- `reward_valve` - Reward delivery valve signal
+
+**Digital Channels** (event detection):
+- `neural_frames` - Imaging frame TTL pulses
+- `volume_counter` - Volume/plane counter
+- `bpod` - Behavioral task controller sync
+- `frame2ttl` - Screen refresh sync
+- `left_camera`, `right_camera`, `body_camera` - Camera frame triggers
+- `audio` - Audio/microphone sync
+- `rotary_encoder` - Wheel encoder pulses
+
+**Processing:**
+- Channel mapping defined dynamically from `_timeline_DAQdata.meta.json`
+- Digital channels converted to `LabeledEvents` with polarity labels (0/1 → low/high)
+- Analog channels stored as `TimeSeries`
+
+**NWB Output:**
+- Analog: `TimeSeries` per device in `nwbfile.acquisition`
+- Digital: `LabeledEvents` (ndx-events extension) per device
+- Metadata defined in `_metadata/mesoscope_DAQ_metadata.yaml`
+- Device info: NIDAQ model, sample rate, channel specifications
+
+### Data Format Notes
+
+**File Formats Used:**
+- **TIFF** - Raw imaging data (multi-page ScanImage format)
+- **Binary (.bin)** - Motion-corrected imaging (memory-mapped int16)
+- **Sparse matrices** - ROI masks (pydata/sparse format, not scipy.sparse)
+- **Parquet (.pqt)** - Tabular data (DLC, features)
+- **NumPy (.npy)** - Numerical arrays, timestamps
+- **JSON/YAML** - Metadata and configuration
+- **MP4** - Compressed video files
+
+**Special Handling:**
+- ScanImage Tiled mode: Multiple FOVs per TIFF frame
+- Sparse masks: COO format → NWB pixel_mask conversion
+- Timeline sync: Session-wide synchronization across all devices
+- External videos: Referenced but not embedded in NWB

@@ -44,7 +44,7 @@ def session_to_nwb(
                 eid=eid,
                 one=ONE(),  # base_url="https://alyx.internationalbrainlab.org"
                 stub_test=stub_test,
-                output_path=output_path / "processed",
+                output_path=output_path,
                 append_on_disk_nwbfile=append_on_disk_nwbfile,
                 verbose=verbose,
             )
@@ -54,7 +54,7 @@ def session_to_nwb(
                 eid=eid,
                 one=ONE(),  # base_url="https://alyx.internationalbrainlab.org"
                 stub_test=stub_test,
-                output_path=output_path / "raw",
+                output_path=output_path,
                 append_on_disk_nwbfile=append_on_disk_nwbfile,
                 verbose=verbose,
             )
@@ -74,15 +74,27 @@ if __name__ == "__main__":
     ]
     # Parameters for conversion
     output_path = Path("E:/IBL-mesoscope-nwbfiles")
-    stub_test = True  # Set to True for a quick test conversion with limited data
-    mode = "processed"  # Choose between 'processed' and 'raw'
+    stub_test = False  # Set to True for a quick test conversion with limited data
     for eid in eids:
         start_time = time.time()
         try:
             session_to_nwb(
                 output_path=output_path,
                 eid=eid,
-                mode=mode,
+                mode="processed",
+                stub_test=stub_test,
+                append_on_disk_nwbfile=False,
+                verbose=True,
+            )
+            print(f"Conversion completed in {time.time() - start_time:.2f} seconds.")
+        except Exception as e:
+            print(f"Conversion failed for eid {eid} with error: {e}")
+        start_time = time.time()
+        try:
+            session_to_nwb(
+                output_path=output_path,
+                eid=eid,
+                mode="raw",
                 stub_test=stub_test,
                 append_on_disk_nwbfile=False,
                 verbose=True,

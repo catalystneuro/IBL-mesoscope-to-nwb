@@ -85,14 +85,21 @@ def convert_raw_session(
 
     number_of_FOVs = get_number_of_FOVs_from_raw_imaging_metadata(one, eid) if not stub_test else 2
     tasks = get_available_tasks_from_raw_collections(one, eid)
+    photon_series_index = 0
     # Add raw imaging data
-    for task, FOV_index in zip(tasks, range(number_of_FOVs)):
-        data_interfaces[f"Task{task}FOV{FOV_index}RawImaging"] = MesoscopeRawImagingInterface(
-            **interface_kwargs, FOV_index=FOV_index, task=task, verbose=verbose
-        )
-        conversion_options.update(
-            {f"Task{task}FOV{FOV_index}RawImaging": dict(stub_test=stub_test, photon_series_index=FOV_index)}
-        )
+    for task in tasks:
+        for FOV_index in range(number_of_FOVs):
+            data_interfaces[f"Task{task}FOV{FOV_index}RawImaging"] = MesoscopeRawImagingInterface(
+                **interface_kwargs, FOV_index=FOV_index, task=task, verbose=verbose
+            )
+            conversion_options.update(
+                {
+                    f"Task{task}FOV{FOV_index}RawImaging": dict(
+                        stub_test=stub_test, photon_series_index=photon_series_index
+                    )
+                }
+            )
+            photon_series_index += 1
 
     # Add DAQ data interface
     data_interfaces["DAQ"] = MesoscopeDAQInterface(**interface_kwargs)
@@ -225,7 +232,7 @@ if __name__ == "__main__":
     convert_raw_session(
         eid="5ce2e17e-8471-42d4-8a16-21949710b328",
         one=ONE(),  # base_url="https://alyx.internationalbrainlab.org"
-        stub_test=True,
+        stub_test=False,
         output_path=Path("E:/IBL-mesoscope-nwbfiles"),
         append_on_disk_nwbfile=False,
         verbose=True,
