@@ -110,6 +110,7 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
         self.raw_metadata = self.one.load_dataset(
             self.session, dataset="_timeline_DAQdata.meta.json", collection="raw_sync_data"
         )
+        self.timeline_object = self.one.load_object(self.session, "DAQdata")
 
         session_path = one.eid2path(session)
         # Load _timeline_DAQdata.meta.json which maps hardware ports to device names
@@ -320,14 +321,13 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
             If True, only writes a small amount of data for testing
         """
         metadata = metadata or self.get_metadata()
-        timeline = self.one.load_object(self.session, "DAQdata")
 
         if stub_test:
-            data = timeline["raw"][:10000, :]
-            # timestamps = timeline["timestamps"][:10000, :]
+            data = self.timeline_object["raw"][:10000, :]
+            # timestamps = self.timeline_object["timestamps"][:10000, :]
         else:
-            data = timeline["raw"][:, :]
-            # timestamps = timeline["timestamps"][:, :]
+            data = self.timeline_object["raw"][:, :]
+            # timestamps = self.timeline_object["timestamps"][:, :]
 
         # Add devices
         device_metadata = metadata.get("Devices", [])
@@ -344,7 +344,7 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
             )
 
         if self.has_digital_channels:
-            self._add_digital_channels(nwbfile=nwbfile, metadata=metadata, timeline_object=timeline)
+            self._add_digital_channels(nwbfile=nwbfile, metadata=metadata)
 
     def _add_analog_channels(
         self,
@@ -395,7 +395,6 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
         self,
         nwbfile: NWBFile,
         metadata: dict,
-        timeline_object: object | None = None,
     ):
         """
         Add digital channels from the DAQ board to the NWB file as events.
@@ -413,7 +412,6 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
         if not self.has_digital_channels:
             return
 
-        from ibllib.io.raw_daq_loaders import extract_sync_timeline
         from ndx_events import LabeledEvents
 
         events_metadata = metadata.get("Events", {}).get(self.metadata_key, {})
@@ -440,11 +438,7 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
                 description = f"{description}\n\nLabel meanings:\n{meanings_text}"
 
             # Get event data
-            chmap = timeline_meta2chmap(self.raw_metadata, include_channels=[group_key])
-            events_structure = extract_sync_timeline(timeline_object, chmap=chmap)
-
-            timestamps = events_structure["times"]
-            data = (events_structure["polarities"] == 1).astype(int)  # Convert polarities from (-1, 1) to (0, 1)
+            timestamps, data = self.get_events(channel=group_key)
 
             if timestamps.size == 0:
                 continue
@@ -461,3 +455,22 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
                 labels=labels_list,
             )
             nwbfile.add_acquisition(labeled_events)
+
+    def get_events(self, channel: str) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Get events from the DAQ timeline.
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray]
+            Tuple containing two arrays: timestamps and values for the events.
+        """
+        from ibllib.io.raw_daq_loaders import extract_sync_timeline
+
+        chmap = timeline_meta2chmap(self.raw_metadata, include_channels=[channel])
+        events_structure = extract_sync_timeline(self.timeline_object, chmap=chmap)
+
+        timestamps = events_structure["times"]
+        data = (events_structure["polarities"] == 1).astype(int)  # Convert polarities from (-1, 1) to (0, 1)
+
+        return timestamps, data
