@@ -1,10 +1,11 @@
 import numpy as np
-from roiextractors import ScanImageImagingExtractor
+from one.api import ONE
+from roiextractors import MultiImagingExtractor, ScanImageImagingExtractor
 from roiextractors.extraction_tools import PathType, get_package
 
 
-class MesoscopeRawImagingExtractor(ScanImageImagingExtractor):
-    """A segmentation extractor for reading IBL Raw Mesoscopic imaging data produced via ScanImage software.
+class _SingleCollectionImagingExtractor(ScanImageImagingExtractor):
+    """A segmentation extractor for reading IBL Raw Mesoscopic imaging data produced via ScanImage software in a single collection.
 
     This extractor is designed to handle the structure of ScanImage TIFF files, which can contain
     multi channel and both planar and volumetric data. It also supports both single-file and multi-file datasets generated
@@ -14,24 +15,12 @@ class MesoscopeRawImagingExtractor(ScanImageImagingExtractor):
     and IFD (Image File Directory) location. This mapping enables efficient retrieval of specific frames
     without loading the entire dataset into memory, making it suitable for large datasets.
 
-    Tiled Configuration Support:
-    - Handles ScanImage "Tiled" display mode (SI.hDisplay.volumeDisplayStyle == "Tiled")
-    - In Tiled mode, multiple FOVs are stored vertically within a single TIFF frame with spacing between them
-    - The FOV_index parameter selects which FOV to extract from the tiled frame
-    - Automatically calculates FOV positions and extracts only the requested FOV data
-    - See conversion_notes.md for detailed explanation of Tiled configuration handling
-
-    Key features:
-    - Handles multi-channel data with channel selection
-    - Supports volumetric (multi-plane) imaging data
-    - Automatically detects and loads multi-file datasets based on ScanImage naming conventions
-    - Extracts and provides access to ScanImage metadata
-    - Efficiently retrieves frames using lazy loading
-    - Handles flyback frames in volumetric data by ignoring them in the mapping
-
+    The extractor also detects if ScanImage was using "Tiled" display mode during acquisition. In Tiled mode,
+    multiple FOVs are stored vertically in a single TIFF frame with spacing between them.
+    The extractor handles this configuration by extracting only the rows corresponding to the requested FOV, discarding the filler pixels.
     """
 
-    extractor_name = "MesoscopeRawImagingExtractor"
+    extractor_name = "_SingleCollectionImagingExtractor"
 
     def __init__(
         self,
@@ -41,7 +30,7 @@ class MesoscopeRawImagingExtractor(ScanImageImagingExtractor):
         file_paths: list[PathType] | None = None,
     ):
         """
-        Initialize the MesoscopeRawImagingExtractor.
+        Initialize the _SingleCollectionImagingExtractor.
 
         Parameters
         ----------
@@ -66,7 +55,7 @@ class MesoscopeRawImagingExtractor(ScanImageImagingExtractor):
         Examples
         --------
         # Explicitly specifying multiple files
-        >>> extractor = MesoscopeRawImagingExtractor(
+        >>> extractor = _SingleCollectionImagingExtractor(
         ...     file_paths=['path/to/file1.tif', 'path/to/file2.tif', 'path/to/file3.tif'],
         ...     channel_name='Channel 1'
         ... )
@@ -203,3 +192,53 @@ class MesoscopeRawImagingExtractor(ScanImageImagingExtractor):
             samples = samples.squeeze(axis=3)
 
         return samples
+
+
+class MesoscopeRawImagingExtractor(MultiImagingExtractor):
+    """A multi session imaging extractor for reading IBL Raw Mesoscopic imaging data produced via ScanImage software.
+
+    This extractor detect and consolidates multiple .tif files from multiple recording sessions (collections)
+    into a single continuous dataset.
+    It creates a MultiImagingExtractor by instantiating a _SingleCollectionImagingExtractor for each recording session and combining them.
+    """
+
+    extractor_name = "MesoscopeRawImagingExtractor"
+
+    def __init__(
+        self,
+        one: ONE,
+        session: str,
+        FOV_index: int,
+        channel_name: str,
+        verbose: bool = False,
+    ):
+        local_session_folder_path = one.eid2path(session, query_type="local")
+        raw_imaging_collections = one.list_collections(
+            session,
+            filename=f"*raw_imaging_data_*",
+        )
+
+        imaging_extractors = []
+
+        for collection in raw_imaging_collections:
+            if "reference" in collection:  # TODO: create a separate interface for reference imaging data
+                continue
+            else:
+                decompressed_raw_imaging_folder = local_session_folder_path / collection / "imaging.frames"
+                # check that folder exists
+                if not decompressed_raw_imaging_folder.exists():
+                    raise FileNotFoundError(
+                        f"Decompressed raw imaging data folder not found at {decompressed_raw_imaging_folder}. Please ensure the raw imaging data has been decompressed."
+                    )
+                file_paths = sorted(decompressed_raw_imaging_folder.glob("*.tif"))
+
+            if len(file_paths) == 0:
+                raise FileNotFoundError(f"No .tif files found in collection {collection} for session {session}.")
+
+            extractor = _SingleCollectionImagingExtractor(
+                channel_name=channel_name, file_paths=file_paths, FOV_index=FOV_index
+            )
+            imaging_extractors.append(extractor)
+            # imaging_extractor.set_times(times) #TODO: set correct timestamps for each frame based on IBL time alignment code
+
+        super().__init__(imaging_extractors=imaging_extractors)

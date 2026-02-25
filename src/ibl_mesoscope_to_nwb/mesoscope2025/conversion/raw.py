@@ -15,7 +15,6 @@ from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
     MesoscopeRawImagingInterface,
 )
 from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
-    get_available_tasks_from_raw_collections,
     get_number_of_FOVs_from_raw_imaging_metadata,
     sanitize_subject_id_for_dandi,
 )
@@ -84,22 +83,14 @@ def convert_raw_session(
     interface_kwargs = dict(one=one, session=eid)
 
     number_of_FOVs = get_number_of_FOVs_from_raw_imaging_metadata(one, eid) if not stub_test else 2
-    tasks = get_available_tasks_from_raw_collections(one, eid)
-    photon_series_index = 0
     # Add raw imaging data
-    for task in tasks:
-        for FOV_index in range(number_of_FOVs):
-            data_interfaces[f"Task{task}FOV{FOV_index}RawImaging"] = MesoscopeRawImagingInterface(
-                **interface_kwargs, FOV_index=FOV_index, task=task, verbose=verbose
-            )
-            conversion_options.update(
-                {
-                    f"Task{task}FOV{FOV_index}RawImaging": dict(
-                        stub_test=stub_test, photon_series_index=photon_series_index
-                    )
-                }
-            )
-            photon_series_index += 1
+    for FOV_index in range(number_of_FOVs):
+        data_interfaces[f"FOV{FOV_index}RawImaging"] = MesoscopeRawImagingInterface(
+            **interface_kwargs, FOV_index=FOV_index, verbose=verbose
+        )
+        conversion_options.update(
+            {f"FOV{FOV_index}RawImaging": dict(stub_test=stub_test, photon_series_index=FOV_index)}
+        )
 
     # Add DAQ data interface
     data_interfaces["DAQ"] = MesoscopeDAQInterface(**interface_kwargs)
@@ -230,7 +221,7 @@ def convert_raw_session(
 if __name__ == "__main__":
     # Example usage
     convert_raw_session(
-        eid="5ce2e17e-8471-42d4-8a16-21949710b328",
+        eid="42d7e11e-3185-4a79-a6ad-bbaf47366db2",
         one=ONE(),  # base_url="https://alyx.internationalbrainlab.org"
         stub_test=False,
         output_path=Path("E:/IBL-mesoscope-nwbfiles"),
