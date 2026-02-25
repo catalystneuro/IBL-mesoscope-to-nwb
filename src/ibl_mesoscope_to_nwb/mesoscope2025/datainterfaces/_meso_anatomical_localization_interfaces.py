@@ -24,7 +24,7 @@ class MesoscopeROIAnatomicalLocalizationInterface(BaseIBLDataInterface):
         self.one = one
         self.session = session
         self.revision = self.REVISION
-        # Check if task exists
+        # Check if FOV_name exists
         FOV_names = get_FOV_names_from_alf_collections(one, session)
         if FOV_name not in FOV_names:
             raise ValueError(
@@ -294,7 +294,7 @@ class MesoscopeImageAnatomicalLocalizationInterface(BaseIBLDataInterface):
         self.one = one
         self.session = session
         self.revision = self.REVISION
-        # Check if task exists
+        # Check if FOV_names exists
         FOV_names = get_FOV_names_from_alf_collections(one, session)
         if FOV_name not in FOV_names:
             raise ValueError(
