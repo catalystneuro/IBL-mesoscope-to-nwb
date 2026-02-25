@@ -70,6 +70,20 @@ class RawMesoscopeNWBConverter(IblConverter):
 
         return metadata
 
+    def temporally_align_data_interfaces(self, metadata: dict | None = None, conversion_options: dict | None = None):
+        if "DAQ" in self.data_interface_objects:
+            daq_interface = self.data_interface_objects["DAQ"]
+            ttl_timestamps, ttl_data = daq_interface.get_events(channel="volume_counter")
+            aligned_timestamps = ttl_timestamps[ttl_data == 1]  # Keep only timestamps where TTL is high (1)
+            for interface_name, interface in self.data_interface_objects.items():
+                if "RawImaging" in interface_name:
+                    timestamps = interface.get_timestamps()
+                    # TODO: Untill IBL team provides a solution to the mismatch between the number of timestamps in the DAQ data and the imaging data, we will trim the aligned timestamps to match the number of timestamps in the imaging data.
+                    # This is because the last 10 timestamps in the DAQ data are associated with the 10 frames acquired after the end of the session,
+                    # and used as reference frames.
+                    aligned_timestamps = aligned_timestamps[: len(timestamps)]
+                    interface.set_aligned_timestamps(aligned_timestamps=aligned_timestamps)
+
 
 class ProcessedMesoscopeNWBConverter(IblConverter):
     """Primary conversion class for processed IBL mesoscope datasets."""

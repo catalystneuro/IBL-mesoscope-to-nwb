@@ -221,7 +221,7 @@ def convert_raw_session(
 if __name__ == "__main__":
     # Example usage
     convert_raw_session(
-        eid="42d7e11e-3185-4a79-a6ad-bbaf47366db2",
+        eid="5ce2e17e-8471-42d4-8a16-21949710b328",
         one=ONE(),  # base_url="https://alyx.internationalbrainlab.org"
         stub_test=False,
         output_path=Path("E:/IBL-mesoscope-nwbfiles"),
