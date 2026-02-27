@@ -112,9 +112,9 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
         )
         self.timeline_object = self.one.load_object(self.session, "DAQdata")
 
-        session_path = one.eid2path(session)
+        self.session_path = one.eid2path(session)
         # Load _timeline_DAQdata.meta.json which maps hardware ports to device names
-        self.wiring = timeline_meta2wiring(Path(session_path) / "raw_sync_data")
+        self.wiring = timeline_meta2wiring(Path(self.session_path) / "raw_sync_data")
 
         # Build channel groups from wiring
         self._digital_channel_groups = self.get_digital_channel_groups_from_wiring(self.wiring)
@@ -437,8 +437,11 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
                 meanings_text = "\n".join(f"  - {label}: {meaning}" for label, meaning in meanings.items())
                 description = f"{description}\n\nLabel meanings:\n{meanings_text}"
 
-            # Get event data
-            timestamps, data = self.get_events(channel=group_key)
+            #
+            sync, _ = self._extract_sync_and_chmap(channels=[group_key])
+
+            timestamps = sync["times"]
+            data = (sync["polarities"] == 1).astype(int)  # Convert polarities from (-1, 1) to (0, 1)
 
             if timestamps.size == 0:
                 continue
@@ -456,21 +459,69 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
             )
             nwbfile.add_acquisition(labeled_events)
 
-    def get_events(self, channel: str) -> tuple[np.ndarray, np.ndarray]:
+        return timestamps, data
+
+    def _extract_sync_and_chmap(self, channels=None):
         """
-        Get events from the DAQ timeline.
+        Extract sync timeline and channel map for specified channels.
+
+        Parameters
+        ----------
+        channels : list[str], optional
+            List of channel names to extract. If None, all channels are extracted.
 
         Returns
         -------
-        tuple[np.ndarray, np.ndarray]
-            Tuple containing two arrays: timestamps and values for the events.
+        tuple
+            Tuple containing the sync timeline and channel map for the specified channels.
         """
         from ibllib.io.raw_daq_loaders import extract_sync_timeline
 
-        chmap = timeline_meta2chmap(self.raw_metadata, include_channels=[channel])
-        events_structure = extract_sync_timeline(self.timeline_object, chmap=chmap)
+        chmap = timeline_meta2chmap(self.raw_metadata, include_channels=channels)
+        sync = extract_sync_timeline(self.timeline_object, chmap=chmap)
 
-        timestamps = events_structure["times"]
-        data = (events_structure["polarities"] == 1).astype(int)  # Convert polarities from (-1, 1) to (0, 1)
+        return sync, chmap
 
-        return timestamps, data
+    def get_FOVs_timestamps(self) -> np.ndarray:
+        """
+        Get timestamps of FOVs (frames) from the DAQ recording.
+
+        Returns
+        -------
+        np.ndarray
+            Array of timestamps corresponding to FOVs (frames).
+        """
+        from ibllib.io.extractors.mesoscope import MesoscopeSyncTimeline
+
+        from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
+            get_number_of_FOVs_from_raw_imaging_metadata,
+        )
+
+        n_FOVs = get_number_of_FOVs_from_raw_imaging_metadata(one=self.one, session=self.session)
+        sync, chmap = self._extract_sync_and_chmap(channels=["neural_frames", "volume_counter"])
+        mesoscope_synch_timeline = MesoscopeSyncTimeline(session_path=self.session_path, n_FOVs=n_FOVs)
+        fov_times, _ = mesoscope_synch_timeline._extract(sync=sync, chmap=chmap)
+        # TODO re-implement _extract in MesoscopeSyncTimeline:
+        # Traceback (most recent call last):
+        #   File "c:\Users\amtra\CatalystNeuro\IBL-mesoscope-to-nwb\src\ibl_mesoscope_to_nwb\mesoscope2025\datainterfaces\_meso_DAQ_interface.py", line 508, in <module>
+        #     fov_timestamps = daq_interface.get_FOVs_timestamps()
+        #   File "c:\Users\amtra\CatalystNeuro\IBL-mesoscope-to-nwb\src\ibl_mesoscope_to_nwb\mesoscope2025\datainterfaces\_meso_DAQ_interface.py", line 500, in get_FOVs_timestamps
+        #     fov_times, _ = mesoscope_synch_timeline._extract(sync=sync, chmap=chmap)
+        #                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+        #   File "C:\Users\amtra\anaconda3\envs\ibl-mesoscope-to-nwb-env\Lib\site-packages\ibllib\io\extractors\mesoscope.py", line 737, in _extract
+        #     edges = self.get_bout_edges(frame_times, device_collection, events)
+        #   File "C:\Users\amtra\anaconda3\envs\ibl-mesoscope-to-nwb-env\Lib\site-packages\ibllib\io\extractors\mesoscope.py", line 858, in get_bout_edges
+        #     include = sorted(int(c.rsplit('_', 1)[-1]) for c in collections)
+        #   File "C:\Users\amtra\anaconda3\envs\ibl-mesoscope-to-nwb-env\Lib\site-packages\ibllib\io\extractors\mesoscope.py", line 858, in <genexpr>
+        #     include = sorted(int(c.rsplit('_', 1)[-1]) for c in collections)
+        #                      ~~~^^^^^^^^^^^^^^^^^^^^^^
+        # ValueError: invalid literal for int() with base 10: 'data'
+        return fov_times
+
+
+if __name__ == "__main__":
+    one = ONE()
+    session = "5ce2e17e-8471-42d4-8a16-21949710b328"
+    daq_interface = MesoscopeDAQInterface(one=one, session=session)
+    fov_timestamps = daq_interface.get_FOVs_timestamps()
+    print(f"FOV timestamps for session {session}: {fov_timestamps}")
