@@ -41,8 +41,9 @@ class MesoscopeSegmentationExtractor(SegmentationExtractor):
 
         self._channel_names = ["OpticalChannel"]  # TODO update for dual plane
 
-        self.set_property(key="Classifier", values=self.cell_classifier, ids=range(len(self.cell_classifier)))
+        self.set_property(key="classifier", values=self.cell_classifier, ids=range(len(self.cell_classifier)))
         self.set_property(key="UUID", values=self.uuids, ids=range(len(self.uuids)))
+        self.set_property(key="time_offset", values=self.time_offsets, ids=range(len(self.time_offsets)))
 
     def get_accepted_list(self) -> list[int]:
         if not hasattr(self, "iscell"):
@@ -62,6 +63,9 @@ class MesoscopeSegmentationExtractor(SegmentationExtractor):
         self, start_sample: int | None = None, end_sample: int | None = None
     ) -> np.ndarray | None:
         timestamps = self.one.load_dataset(id=self.session, dataset="mpci.times", collection=f"alf/{self.FOV_name}")
+        # timestamps referred to the acquisition of the entire FOV.
+        # In the PlaneSegmentation table an extra column is added to store the time shift relative to each ROI (due to line scan acquisition).
+        # The time shift is stored in the column "TimeOffset" and can be used to compute the exact timestamps for each ROI if needed.
         if timestamps is None:
             return None
         return timestamps[start_sample:end_sample]
@@ -107,6 +111,18 @@ class MesoscopeSegmentationExtractor(SegmentationExtractor):
         """Returns the UUIDs for each ROI."""
         uuids = self.one.load_dataset(id=self.session, dataset="mpciROIs.uuids", collection=f"alf/{self.FOV_name}")
         return uuids
+
+    @property
+    def time_offsets(self) -> np.ndarray:
+        """Returns the time offsets for each ROI. The time offset is the time shift relative to each ROI due to line scan acquisition."""
+        time_shifts = self.one.load_dataset(
+            id=self.session, dataset="mpciStack.timeshift", collection=f"alf/{self.FOV_name}"
+        )
+        roi_locations = self.one.load_dataset(
+            id=self.session, dataset="mpciROIs.stackPos", collection=f"alf/{self.FOV_name}"
+        )
+        time_offsets = time_shifts[roi_locations[:, len(time_shifts.shape)]]
+        return time_offsets
 
     def get_roi_locations(self, roi_ids=None) -> np.ndarray:
         """Returns the center locations (x, y, z) of each ROI."""
