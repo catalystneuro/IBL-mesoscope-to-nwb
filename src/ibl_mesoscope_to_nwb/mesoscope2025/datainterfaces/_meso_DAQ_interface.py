@@ -482,14 +482,19 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
 
         return sync, chmap
 
-    def get_FOVs_timestamps(self) -> np.ndarray:
+    def get_aligned_FOV_timestamps(self, FOV_name: str) -> np.ndarray:
         """
-        Get timestamps of FOVs (frames) from the DAQ recording.
+        Get timestamps of FOV from the DAQ recording.
+
+        Parameters
+        ----------
+        FOV_name : str
+            Name of the FOV to retrieve timestamps for.
 
         Returns
         -------
-        np.ndarray
-            Array of timestamps corresponding to FOVs (frames).
+        list[np.ndarray]
+            List of arrays, each array containing timestamps corresponding to a FOV.
         """
         from ibllib.io.extractors.mesoscope import MesoscopeSyncTimeline
 
@@ -497,31 +502,34 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
             get_number_of_FOVs_from_raw_imaging_metadata,
         )
 
+        FOV_index = int(FOV_name.replace("FOV_", ""))
+
         n_FOVs = get_number_of_FOVs_from_raw_imaging_metadata(one=self.one, session=self.session)
         sync, chmap = self._extract_sync_and_chmap(channels=["neural_frames", "volume_counter"])
         mesoscope_synch_timeline = MesoscopeSyncTimeline(session_path=self.session_path, n_FOVs=n_FOVs)
-        fov_times, _ = mesoscope_synch_timeline._extract(sync=sync, chmap=chmap)
-        # TODO re-implement _extract in MesoscopeSyncTimeline:
-        # Traceback (most recent call last):
-        #   File "c:\Users\amtra\CatalystNeuro\IBL-mesoscope-to-nwb\src\ibl_mesoscope_to_nwb\mesoscope2025\datainterfaces\_meso_DAQ_interface.py", line 508, in <module>
-        #     fov_timestamps = daq_interface.get_FOVs_timestamps()
-        #   File "c:\Users\amtra\CatalystNeuro\IBL-mesoscope-to-nwb\src\ibl_mesoscope_to_nwb\mesoscope2025\datainterfaces\_meso_DAQ_interface.py", line 500, in get_FOVs_timestamps
-        #     fov_times, _ = mesoscope_synch_timeline._extract(sync=sync, chmap=chmap)
-        #                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
-        #   File "C:\Users\amtra\anaconda3\envs\ibl-mesoscope-to-nwb-env\Lib\site-packages\ibllib\io\extractors\mesoscope.py", line 737, in _extract
-        #     edges = self.get_bout_edges(frame_times, device_collection, events)
-        #   File "C:\Users\amtra\anaconda3\envs\ibl-mesoscope-to-nwb-env\Lib\site-packages\ibllib\io\extractors\mesoscope.py", line 858, in get_bout_edges
-        #     include = sorted(int(c.rsplit('_', 1)[-1]) for c in collections)
-        #   File "C:\Users\amtra\anaconda3\envs\ibl-mesoscope-to-nwb-env\Lib\site-packages\ibllib\io\extractors\mesoscope.py", line 858, in <genexpr>
-        #     include = sorted(int(c.rsplit('_', 1)[-1]) for c in collections)
-        #                      ~~~^^^^^^^^^^^^^^^^^^^^^^
-        # ValueError: invalid literal for int() with base 10: 'data'
-        return fov_times
+
+        raw_imaging_collections = self.one.list_collections(
+            self.session,
+            filename=f"*raw_imaging_data_*",
+        )
+        # Sorted imaging collections
+        raw_imaging_collections = sorted(raw_imaging_collections)
+        concatenated_fov_times = []  # Initialize list to hold concatenated timestamps for each FOV
+        for collection in raw_imaging_collections:
+            if "reference" in collection:
+                continue
+            fov_times_and_line_shifts = mesoscope_synch_timeline._extract(
+                sync=sync, chmap=chmap, device_collection=collection
+            )
+            fov_times = fov_times_and_line_shifts[FOV_index]
+            concatenated_fov_times += list(fov_times)  # Append timestamps for this collection to the list
+
+        return np.array(concatenated_fov_times)
 
 
 if __name__ == "__main__":
     one = ONE()
     session = "5ce2e17e-8471-42d4-8a16-21949710b328"
     daq_interface = MesoscopeDAQInterface(one=one, session=session)
-    fov_timestamps = daq_interface.get_FOVs_timestamps()
-    print(f"FOV timestamps for session {session}: {fov_timestamps}")
+    fov_timestamps = daq_interface.get_aligned_FOV_timestamps(FOV_name="FOV_00")
+    print(f"FOV_00: {len(fov_timestamps)} timestamps")
