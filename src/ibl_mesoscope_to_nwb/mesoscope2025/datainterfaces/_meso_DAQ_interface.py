@@ -527,9 +527,3 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
         return np.array(concatenated_fov_times)
 
 
-if __name__ == "__main__":
-    one = ONE()
-    session = "5ce2e17e-8471-42d4-8a16-21949710b328"
-    daq_interface = MesoscopeDAQInterface(one=one, session=session)
-    fov_timestamps = daq_interface.get_aligned_FOV_timestamps(FOV_name="FOV_00")
-    print(f"FOV_00: {len(fov_timestamps)} timestamps")
