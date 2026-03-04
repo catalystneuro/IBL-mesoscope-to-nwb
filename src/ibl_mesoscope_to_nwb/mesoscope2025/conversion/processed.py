@@ -11,7 +11,6 @@ from ibl_to_nwb.datainterfaces import (
     PassiveReplayStimInterface,
     PupilTrackingInterface,
     RoiMotionEnergyInterface,
-    SessionEpochsInterface,
 )
 from ndx_ibl import IblSubject
 from neuroconv.utils import dict_deep_update, load_dict_from_file
@@ -27,6 +26,7 @@ from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
     MesoscopeWheelKinematicsInterface,
     MesoscopeWheelMovementsInterface,
     MesoscopeWheelPositionInterface,
+    SessionEpochsInterface,
 )
 from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
     get_available_tasks_from_alf_collections,
@@ -160,9 +160,8 @@ def convert_processed_session(
             )
             conversion_options.update({f"{task.replace('task_', 'Task')}WheelMovements": dict(stub_test=stub_test)})
 
-    # Session epochs (high-level task vs passive phases)
-    if SessionEpochsInterface.check_availability(one, eid)["available"]:
-        data_interfaces["SessionEpochs"] = SessionEpochsInterface(**interface_kwargs)
+    # Add session epochs interface (task vs passive phase timing)
+    data_interfaces["SessionEpochs"] = SessionEpochsInterface(**interface_kwargs)
 
     # Passive period data - add each interface if its data is available
     if PassiveIntervalsInterface.check_availability(one, eid)["available"]:

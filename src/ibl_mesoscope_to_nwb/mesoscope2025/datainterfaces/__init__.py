@@ -18,6 +18,7 @@ from ._meso_wheel_interfaces import (
     MesoscopeWheelMovementsInterface,
     MesoscopeWheelPositionInterface,
 )
+from ._meso_session_epoch_interface import SessionEpochsInterface
 from ._visual_stimulus_interface import VisualStimulusInterface
 
 __all__ = [
@@ -33,5 +34,6 @@ __all__ = [
     "MesoscopeWheelMovementsInterface",
     "MesoscopeWheelPositionInterface",
     "MesoscopeDAQInterface",
+    "SessionEpochsInterface",
     "VisualStimulusInterface",
 ]
