@@ -13,6 +13,7 @@ from ibl_mesoscope_to_nwb.mesoscope2025 import RawMesoscopeNWBConverter
 from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
     MesoscopeDAQInterface,
     MesoscopeRawImagingInterface,
+    VisualStimulusInterface,
 )
 from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
     get_number_of_FOVs_from_raw_imaging_metadata,
@@ -95,6 +96,9 @@ def convert_raw_session(
     # Add DAQ data interface
     data_interfaces["DAQ"] = MesoscopeDAQInterface(**interface_kwargs)
     conversion_options.update({"DAQ": dict(stub_test=stub_test)})
+
+    # Add visual stimulus data interface (passive protocol intervals and video)
+    data_interfaces["VisualStimulus"] = VisualStimulusInterface(**interface_kwargs)
 
     # Add raw behavioral video
     # Add video interfaces for cameras that have timestamps
@@ -223,7 +227,7 @@ if __name__ == "__main__":
     convert_raw_session(
         eid="5ce2e17e-8471-42d4-8a16-21949710b328",
         one=ONE(),  # base_url="https://alyx.internationalbrainlab.org"
-        stub_test=False,
+        stub_test=True,
         output_path=Path("E:/IBL-mesoscope-nwbfiles"),
         append_on_disk_nwbfile=False,
         verbose=True,
