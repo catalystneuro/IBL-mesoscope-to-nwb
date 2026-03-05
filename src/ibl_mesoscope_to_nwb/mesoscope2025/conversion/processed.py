@@ -219,11 +219,6 @@ def convert_processed_session(
     # ========================================================================
     metadata = converter.get_metadata()
 
-    # Update default metadata with the editable in the corresponding yaml file
-    editable_metadata_path = Path(__file__).parent.parent / "_metadata" / "mesoscope_general_metadata.yaml"
-    editable_metadata = load_dict_from_file(editable_metadata_path)
-    metadata = dict_deep_update(metadata, editable_metadata)
-
     # ========================================================================
     # STEP 4: Write NWB file
     # ========================================================================

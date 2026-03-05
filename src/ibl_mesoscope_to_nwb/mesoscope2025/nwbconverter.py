@@ -55,6 +55,8 @@ class IblConverter(ConverterPipe):
         subject_metadata_block["weight"] = str(subject_metadata_block["weight"])  # Ensure weight is a string
         metadata["Subject"].update(subject_metadata_block)
 
+        # TODO add session_description, experiment_description, keywords, ask cline what other relevant metadata fields we can add from Alyx to the NWB file (e.g. session number, task_protocol, rig name, etc.)
+
         return metadata
 
 
