@@ -1,0 +1,8 @@
+NWBFile:
+  keywords:
+    - Keyword1
+    - Keyword2
+    - Keyword3
+  #related_publications:
+  #  https://doi.org/### or link to APA or MLA citation of the publication
+  experiment_description: "Description of the experiment, including task and passive phases, and any other relevant details about the session that would be useful for understanding the data."

@@ -5,7 +5,6 @@ from pathlib import Path
 
 from ibl_to_nwb.datainterfaces import RawVideoInterface
 from ndx_ibl import IblSubject
-from neuroconv.utils import dict_deep_update, load_dict_from_file
 from one.api import ONE
 from pynwb import NWBFile
 
@@ -13,7 +12,7 @@ from ibl_mesoscope_to_nwb.mesoscope2025 import RawMesoscopeNWBConverter
 from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
     MesoscopeDAQInterface,
     MesoscopeRawImagingInterface,
-    SessionEpochsInterface,
+    TaskSettingsInterface,
     VisualStimulusInterface,
 )
 from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
@@ -99,7 +98,7 @@ def convert_raw_session(
     conversion_options.update({"DAQ": dict(stub_test=stub_test)})
 
     # Add session epochs interface (task vs passive phase timing)
-    data_interfaces["SessionEpochs"] = SessionEpochsInterface(**interface_kwargs)
+    data_interfaces["TaskSettings"] = TaskSettingsInterface(**interface_kwargs)
 
     # Add visual stimulus data interface (passive protocol intervals and video)
     data_interfaces["VisualStimulus"] = VisualStimulusInterface(**interface_kwargs)

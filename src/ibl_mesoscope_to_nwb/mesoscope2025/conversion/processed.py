@@ -26,7 +26,7 @@ from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
     MesoscopeWheelKinematicsInterface,
     MesoscopeWheelMovementsInterface,
     MesoscopeWheelPositionInterface,
-    SessionEpochsInterface,
+    TaskSettingsInterface,
 )
 from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
     get_available_tasks_from_alf_collections,
@@ -161,7 +161,7 @@ def convert_processed_session(
             conversion_options.update({f"{task.replace('task_', 'Task')}WheelMovements": dict(stub_test=stub_test)})
 
     # Add session epochs interface (task vs passive phase timing)
-    data_interfaces["SessionEpochs"] = SessionEpochsInterface(**interface_kwargs)
+    data_interfaces["SessionEpochs"] = TaskSettingsInterface(**interface_kwargs)
 
     # Passive period data - add each interface if its data is available
     if PassiveIntervalsInterface.check_availability(one, eid)["available"]:
