@@ -1,8 +1,16 @@
 NWBFile:
   keywords:
-    - Keyword1
-    - Keyword2
-    - Keyword3
+    - International Brain Laboratory
+    - Mesoscope imaging
+    - 2-photon microscopy
+    - calcium imaging
+    - IBL decision-making task
+    - Allen Mouse Brain CCFv3
+    - head-fixed
+    - decision-making
   #related_publications:
   #  https://doi.org/### or link to APA or MLA citation of the publication
-  experiment_description: "Description of the experiment, including task and passive phases, and any other relevant details about the session that would be useful for understanding the data."
+  experiment_description:
+    "This experiment aims to capture the activity of defined neural populations during the IBL decision-making task, using a 2-photon random access mesoscope.
+    By imaging calcium activity in excitatory neurons across the dorsal cortex of transgenic mice,
+    we seek to characterize how population-level neural activity encodes key task variables such as stimulus, choice, and bias context."

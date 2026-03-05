@@ -4,7 +4,11 @@ from .FOVs import (
     get_FOV_names_from_alf_collections,
     get_number_of_FOVs_from_raw_imaging_metadata,
 )
-from .tasks import get_available_tasks_from_alf_collections
+from .tasks import (
+    PROTOCOLS_MAPPING,
+    get_available_tasks_from_alf_collections,
+    get_protocol_type_and_description,
+)
 
 __all__ = [
     "get_ibl_subject_metadata",
@@ -12,4 +16,6 @@ __all__ = [
     "get_available_tasks_from_alf_collections",
     "get_FOV_names_from_alf_collections",
     "get_number_of_FOVs_from_raw_imaging_metadata",
+    "get_protocol_type_and_description",
+    "PROTOCOLS_MAPPING",
 ]
