@@ -14,7 +14,6 @@ from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
     MesoscopeRawImagingExtractor,
 )
 from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
-    get_available_tasks_from_raw_collections,
     get_number_of_FOVs_from_raw_imaging_metadata,
 )
 
@@ -34,7 +33,6 @@ class MesoscopeRawImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInt
         one: ONE,
         session: str,
         FOV_index: int,
-        task: str,
         verbose: bool = False,
     ):
         """
@@ -46,75 +44,45 @@ class MesoscopeRawImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInt
             The session ID for the experiment.
         FOV_index : int
             Index of the field of view (FOV) for the imaging data.
-        task : str
-            Task name associated with the imaging data. e.g., '00', '01', etc.
         verbose : bool, optional
             If True, enables verbose output during processing.
         """
         self.one = one
         self.session = session
         assert FOV_index < get_number_of_FOVs_from_raw_imaging_metadata(
-            self.one, self.session, task
-        ), f"FOV_index {FOV_index} is out of range for session {self.session} and task {task}."
+            self.one, self.session
+        ), f"FOV_index {FOV_index} is out of range for session {self.session}."
         self.FOV_name = f"FOV_{FOV_index:02d}"
         self.FOV_index = FOV_index
-        assert task in get_available_tasks_from_raw_collections(
-            self.one, self.session
-        ), f"Task {task} not found in available raw imaging tasks for session {self.session}."
-        self.task = task
-        channel_name = "OpticalChannel"  # TODO update for dual plane
-        local_session_folder_path = self.one.eid2path(self.session, query_type="local")
-        raw_imaging_collections = self.one.list_collections(
-            self.session,
-            filename=f"*raw_imaging_data_{self.task}*",
-        )
-        raw_imaging_collection = [collection for collection in raw_imaging_collections if "reference" not in collection]
-        assert (
-            len(raw_imaging_collection) == 1
-        ), f"Expected one raw imaging data collection for task {self.task}, found {len(raw_imaging_collection)}."
-        raw_imaging_collection = raw_imaging_collection[0]
-        decompressed_raw_imaging_folder = local_session_folder_path / raw_imaging_collection / "imaging.frames"
-        # check that folder exists
-        if not decompressed_raw_imaging_folder.exists():
-            raise FileNotFoundError(
-                f"Decompressed raw imaging data folder not found at {decompressed_raw_imaging_folder}. Please ensure the raw imaging data has been decompressed."
-            )
-        file_paths = sorted(decompressed_raw_imaging_folder.glob("*.tif"))
-        if len(file_paths) == 0:
-            raise FileNotFoundError(
-                f"No .tif files found in raw imaging data folder at {decompressed_raw_imaging_folder}"
-            )
+
+        channel_name = "OpticalChannel"
 
         super().__init__(
-            channel_name=channel_name,
-            file_paths=file_paths,
+            one=one,
+            session=session,
             FOV_index=FOV_index,
+            channel_name=channel_name,
             verbose=verbose,
         )
 
-        # Override timestamps loaded by the extractor with those from ONE
-        timestamps = self.one.load_dataset(
-            id=self.session, dataset="rawImagingData.times_scanImage", collection=raw_imaging_collection
-        )
-        self.imaging_extractor.set_times(times=timestamps)
-
     @classmethod
-    def get_data_requirements(cls, task: str) -> dict:
+    def get_data_requirements(cls) -> dict:
         """
-        Declare exact data files required for anatomical localization.
+        Declare exact data files required for raw imaging data.
 
-        Note: This interface derives anatomical localization from specific numpy files.
+        Note: This interface derives raw imaging data from specific numpy files.
 
         Returns
         -------
         dict
             Data requirements with exact file paths
         """
+        # TODO - is the raw_imaging_data_00 collection necessary and sufficient condition?
         return {
             "exact_files_options": {
                 "standard": [
-                    f"raw_imaging_data_{task}/imaging.frames.tar.bz2",
-                    f"raw_imaging_data_{task}/rawImagingData.times_scanImage.npy",
+                    f"raw_imaging_data_00/imaging.frames.tar.bz2",
+                    f"raw_imaging_data_00/rawImagingData.times_scanImage.npy",
                 ]
             },
         }
@@ -259,11 +227,11 @@ class MesoscopeRawImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInt
         )
 
         raw_metadata = self.one.load_dataset(
-            self.session, dataset="_ibl_rawImagingData.meta.json", collection=f"raw_imaging_data_{self.task}"
+            self.session, dataset="_ibl_rawImagingData.meta.json", collection=f"raw_imaging_data_00"
         )
         fov = raw_metadata["FOV"][self.FOV_index]
 
-        two_photon_series_suffix = self.FOV_name.replace("_", "") + f"Task{self.task}"
+        two_photon_series_suffix = self.FOV_name.replace("_", "")
         imaging_plane_suffix = self.FOV_name.replace("_", "")
         # Get the template structures (single entries from YAML)
         imaging_plane_template = ophys_metadata["Ophys"]["ImagingPlane"][0]

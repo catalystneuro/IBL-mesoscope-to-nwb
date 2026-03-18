@@ -70,6 +70,15 @@ class RawMesoscopeNWBConverter(IblConverter):
 
         return metadata
 
+    def temporally_align_data_interfaces(self, metadata: dict | None = None, conversion_options: dict | None = None):
+        if "DAQ" in self.data_interface_objects:
+            daq_interface = self.data_interface_objects["DAQ"]
+            for interface_name, interface in self.data_interface_objects.items():
+                if "RawImaging" in interface_name:
+                    FOV_name = interface.FOV_name
+                    fov_timestamps = daq_interface.get_aligned_FOV_timestamps(FOV_name=FOV_name)
+                    interface.set_aligned_timestamps(aligned_timestamps=fov_timestamps)
+
 
 class ProcessedMesoscopeNWBConverter(IblConverter):
     """Primary conversion class for processed IBL mesoscope datasets."""

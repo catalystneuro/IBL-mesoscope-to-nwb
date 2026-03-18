@@ -110,10 +110,11 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
         self.raw_metadata = self.one.load_dataset(
             self.session, dataset="_timeline_DAQdata.meta.json", collection="raw_sync_data"
         )
+        self.timeline_object = self.one.load_object(self.session, "DAQdata")
 
-        session_path = one.eid2path(session)
+        self.session_path = one.eid2path(session)
         # Load _timeline_DAQdata.meta.json which maps hardware ports to device names
-        self.wiring = timeline_meta2wiring(Path(session_path) / "raw_sync_data")
+        self.wiring = timeline_meta2wiring(Path(self.session_path) / "raw_sync_data")
 
         # Build channel groups from wiring
         self._digital_channel_groups = self.get_digital_channel_groups_from_wiring(self.wiring)
@@ -320,11 +321,13 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
             If True, only writes a small amount of data for testing
         """
         metadata = metadata or self.get_metadata()
-        timeline = self.one.load_object(self.session, "DAQdata")
 
         if stub_test:
-            data = timeline["raw"][:10000, :]
-            # timestamps = timeline["timestamps"][:10000, :]
+            data = self.timeline_object["raw"][:10000, :]
+            # timestamps = self.timeline_object["timestamps"][:10000, :]
+        else:
+            data = self.timeline_object["raw"][:, :]
+            # timestamps = self.timeline_object["timestamps"][:, :]
 
         # Add devices
         device_metadata = metadata.get("Devices", [])
@@ -341,7 +344,7 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
             )
 
         if self.has_digital_channels:
-            self._add_digital_channels(nwbfile=nwbfile, metadata=metadata, timeline_object=timeline)
+            self._add_digital_channels(nwbfile=nwbfile, metadata=metadata)
 
     def _add_analog_channels(
         self,
@@ -392,7 +395,6 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
         self,
         nwbfile: NWBFile,
         metadata: dict,
-        timeline_object: object | None = None,
     ):
         """
         Add digital channels from the DAQ board to the NWB file as events.
@@ -410,7 +412,6 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
         if not self.has_digital_channels:
             return
 
-        from ibllib.io.raw_daq_loaders import extract_sync_timeline
         from ndx_events import LabeledEvents
 
         events_metadata = metadata.get("Events", {}).get(self.metadata_key, {})
@@ -436,12 +437,11 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
                 meanings_text = "\n".join(f"  - {label}: {meaning}" for label, meaning in meanings.items())
                 description = f"{description}\n\nLabel meanings:\n{meanings_text}"
 
-            # Get event data
-            chmap = timeline_meta2chmap(self.raw_metadata, include_channels=[group_key])
-            events_structure = extract_sync_timeline(timeline_object, chmap=chmap)
+            #
+            sync, _ = self._extract_sync_and_chmap(channels=[group_key])
 
-            timestamps = events_structure["times"]
-            data = (events_structure["polarities"] == 1).astype(int)  # Convert polarities from (-1, 1) to (0, 1)
+            timestamps = sync["times"]
+            data = (sync["polarities"] == 1).astype(int)  # Convert polarities from (-1, 1) to (0, 1)
 
             if timestamps.size == 0:
                 continue
@@ -458,3 +458,72 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
                 labels=labels_list,
             )
             nwbfile.add_acquisition(labeled_events)
+
+        return timestamps, data
+
+    def _extract_sync_and_chmap(self, channels=None):
+        """
+        Extract sync timeline and channel map for specified channels.
+
+        Parameters
+        ----------
+        channels : list[str], optional
+            List of channel names to extract. If None, all channels are extracted.
+
+        Returns
+        -------
+        tuple
+            Tuple containing the sync timeline and channel map for the specified channels.
+        """
+        from ibllib.io.raw_daq_loaders import extract_sync_timeline
+
+        chmap = timeline_meta2chmap(self.raw_metadata, include_channels=channels)
+        sync = extract_sync_timeline(self.timeline_object, chmap=chmap)
+
+        return sync, chmap
+
+    def get_aligned_FOV_timestamps(self, FOV_name: str) -> np.ndarray:
+        """
+        Get timestamps of FOV from the DAQ recording.
+
+        Parameters
+        ----------
+        FOV_name : str
+            Name of the FOV to retrieve timestamps for.
+
+        Returns
+        -------
+        list[np.ndarray]
+            List of arrays, each array containing timestamps corresponding to a FOV.
+        """
+        from ibllib.io.extractors.mesoscope import MesoscopeSyncTimeline
+
+        from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
+            get_number_of_FOVs_from_raw_imaging_metadata,
+        )
+
+        FOV_index = int(FOV_name.replace("FOV_", ""))
+
+        n_FOVs = get_number_of_FOVs_from_raw_imaging_metadata(one=self.one, session=self.session)
+        sync, chmap = self._extract_sync_and_chmap(channels=["neural_frames", "volume_counter"])
+        mesoscope_synch_timeline = MesoscopeSyncTimeline(session_path=self.session_path, n_FOVs=n_FOVs)
+
+        raw_imaging_collections = self.one.list_collections(
+            self.session,
+            filename=f"*raw_imaging_data_*",
+        )
+        # Sorted imaging collections
+        raw_imaging_collections = sorted(raw_imaging_collections)
+        concatenated_fov_times = []  # Initialize list to hold concatenated timestamps for each FOV
+        for collection in raw_imaging_collections:
+            if "reference" in collection:
+                continue
+            fov_times_and_line_shifts = mesoscope_synch_timeline._extract(
+                sync=sync, chmap=chmap, device_collection=collection
+            )
+            fov_times = fov_times_and_line_shifts[FOV_index]
+            concatenated_fov_times += list(fov_times)  # Append timestamps for this collection to the list
+
+        return np.array(concatenated_fov_times)
+
+
