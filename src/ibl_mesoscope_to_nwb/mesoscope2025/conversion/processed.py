@@ -11,7 +11,6 @@ from ibl_to_nwb.datainterfaces import (
     PassiveReplayStimInterface,
     PupilTrackingInterface,
     RoiMotionEnergyInterface,
-    SessionEpochsInterface,
 )
 from ndx_ibl import IblSubject
 from neuroconv.utils import dict_deep_update, load_dict_from_file
@@ -27,6 +26,7 @@ from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
     MesoscopeWheelKinematicsInterface,
     MesoscopeWheelMovementsInterface,
     MesoscopeWheelPositionInterface,
+    TaskSettingsInterface,
 )
 from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
     get_available_tasks_from_alf_collections,
@@ -160,9 +160,8 @@ def convert_processed_session(
             )
             conversion_options.update({f"{task.replace('task_', 'Task')}WheelMovements": dict(stub_test=stub_test)})
 
-    # Session epochs (high-level task vs passive phases)
-    if SessionEpochsInterface.check_availability(one, eid)["available"]:
-        data_interfaces["SessionEpochs"] = SessionEpochsInterface(**interface_kwargs)
+    # Add session epochs interface (task vs passive phase timing)
+    data_interfaces["SessionEpochs"] = TaskSettingsInterface(**interface_kwargs)
 
     # Passive period data - add each interface if its data is available
     if PassiveIntervalsInterface.check_availability(one, eid)["available"]:
@@ -219,11 +218,6 @@ def convert_processed_session(
     # STEP 3: Get metadata
     # ========================================================================
     metadata = converter.get_metadata()
-
-    # Update default metadata with the editable in the corresponding yaml file
-    editable_metadata_path = Path(__file__).parent.parent / "_metadata" / "mesoscope_general_metadata.yaml"
-    editable_metadata = load_dict_from_file(editable_metadata_path)
-    metadata = dict_deep_update(metadata, editable_metadata)
 
     # ========================================================================
     # STEP 4: Write NWB file

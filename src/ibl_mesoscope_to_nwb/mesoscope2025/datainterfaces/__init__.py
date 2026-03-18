@@ -18,6 +18,8 @@ from ._meso_wheel_interfaces import (
     MesoscopeWheelMovementsInterface,
     MesoscopeWheelPositionInterface,
 )
+from ._task_settings_interface import TaskSettingsInterface
+from ._visual_stimulus_interface import VisualStimulusInterface
 
 __all__ = [
     "MesoscopeRawImagingInterface",
@@ -32,4 +34,6 @@ __all__ = [
     "MesoscopeWheelMovementsInterface",
     "MesoscopeWheelPositionInterface",
     "MesoscopeDAQInterface",
+    "TaskSettingsInterface",
+    "VisualStimulusInterface",
 ]

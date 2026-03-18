@@ -5,7 +5,6 @@ from pathlib import Path
 
 from ibl_to_nwb.datainterfaces import RawVideoInterface
 from ndx_ibl import IblSubject
-from neuroconv.utils import dict_deep_update, load_dict_from_file
 from one.api import ONE
 from pynwb import NWBFile
 
@@ -13,6 +12,8 @@ from ibl_mesoscope_to_nwb.mesoscope2025 import RawMesoscopeNWBConverter
 from ibl_mesoscope_to_nwb.mesoscope2025.datainterfaces import (
     MesoscopeDAQInterface,
     MesoscopeRawImagingInterface,
+    TaskSettingsInterface,
+    VisualStimulusInterface,
 )
 from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
     get_number_of_FOVs_from_raw_imaging_metadata,
@@ -96,6 +97,12 @@ def convert_raw_session(
     data_interfaces["DAQ"] = MesoscopeDAQInterface(**interface_kwargs)
     conversion_options.update({"DAQ": dict(stub_test=stub_test)})
 
+    # Add session epochs interface (task vs passive phase timing)
+    data_interfaces["TaskSettings"] = TaskSettingsInterface(**interface_kwargs)
+
+    # Add visual stimulus data interface (passive protocol intervals and video)
+    data_interfaces["VisualStimulus"] = VisualStimulusInterface(**interface_kwargs)
+
     # Add raw behavioral video
     # Add video interfaces for cameras that have timestamps
     # Check all camera types (left, right, body)
@@ -161,11 +168,6 @@ def convert_raw_session(
     # ========================================================================
     metadata = converter.get_metadata()
 
-    # Update default metadata with the editable in the corresponding yaml file
-    editable_metadata_path = Path(__file__).parent.parent / "_metadata" / "mesoscope_general_metadata.yaml"
-    editable_metadata = load_dict_from_file(editable_metadata_path)
-    metadata = dict_deep_update(metadata, editable_metadata)
-
     # ========================================================================
     # STEP 4: Write NWB file
     # ========================================================================
@@ -223,7 +225,7 @@ if __name__ == "__main__":
     convert_raw_session(
         eid="5ce2e17e-8471-42d4-8a16-21949710b328",
         one=ONE(),  # base_url="https://alyx.internationalbrainlab.org"
-        stub_test=False,
+        stub_test=True,
         output_path=Path("E:/IBL-mesoscope-nwbfiles"),
         append_on_disk_nwbfile=False,
         verbose=True,
