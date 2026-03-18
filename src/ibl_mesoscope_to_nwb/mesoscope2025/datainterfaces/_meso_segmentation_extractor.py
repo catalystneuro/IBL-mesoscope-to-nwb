@@ -1,9 +1,10 @@
-"""A segmentation extractor for Suite2p.
+"""A segmentation extractor for IBL Mesoscope segmentation output.
 
 Classes
 -------
 MesoscopeSegmentationExtractor
-    A segmentation extractor for Suite2p.
+    A segmentation extractor for IBL Mesoscope segmentation output.
+
 """
 
 from typing import List
@@ -20,7 +21,7 @@ from roiextractors.segmentationextractor import (
 
 
 class MesoscopeSegmentationExtractor(SegmentationExtractor):
-    """A segmentation extractor for IBL Mesoscope."""
+    """A segmentation extractor for IBL Mesoscope segmentation output."""
 
     extractor_name = "MesoscopeSegmentationExtractor"
     REVISION: str | None = None
@@ -274,7 +275,7 @@ class MesoscopeSegmentationExtractor(SegmentationExtractor):
         return self._background_image_masks
 
     def _create_rois_responses(self) -> List[_RoiResponse]:
-        """Load the ROI responses from the Suite2p output files.
+        """Load the ROI responses.
         Returns
         -------
         _roi_responses: List[_RoiResponse]

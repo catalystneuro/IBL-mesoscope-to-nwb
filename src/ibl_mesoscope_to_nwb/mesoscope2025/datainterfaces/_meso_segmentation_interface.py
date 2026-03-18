@@ -17,10 +17,10 @@ from ._meso_segmentation_extractor import MesoscopeSegmentationExtractor
 
 
 class MesoscopeSegmentationInterface(BaseIBLDataInterface, BaseSegmentationExtractorInterface):
-    """Interface for Mesoscope segmentation data."""
+    """Interface for IBL Mesoscope segmentation data."""
 
     display_name = "Mesoscope Segmentation"
-    info = "Interface for Mesoscope segmentation."
+    info = "Interface for IBL Mesoscope segmentation."
     REVISION: str | None = None
 
     @classmethod
