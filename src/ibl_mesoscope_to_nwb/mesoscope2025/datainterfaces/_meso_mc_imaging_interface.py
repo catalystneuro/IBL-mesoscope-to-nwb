@@ -1,3 +1,4 @@
+import time
 from copy import deepcopy
 from pathlib import Path
 from typing import Literal
@@ -62,6 +63,69 @@ class MesoscopeMotionCorrectedImagingInterface(BaseIBLDataInterface, BaseImaging
                     f"suite2/{plane_name}/imaging.frames_motionRegistered.bin",
                 ]
             },
+        }
+
+    @classmethod
+    def download_data(
+        cls,
+        one: ONE,
+        eid: str,
+        FOV_name: str,
+        download_only: bool = True,
+        verbose: bool = False,
+        **kwargs,
+    ) -> dict:
+        """
+        Download motion-corrected imaging data for a specific FOV.
+
+        NOTE: Uses class-level REVISION attribute automatically.
+
+        Parameters
+        ----------
+        one : ONE
+            ONE API instance
+        eid : str
+            Session ID
+        FOV_name : str
+            Field of view name (e.g. "FOV_00", "FOV_01", etc.)
+        download_only : bool, default=True
+            If True, download but don't load into memory
+        verbose : bool, default=False
+            If True, print download status and timing information
+
+        Returns
+        -------
+        dict
+            Download status
+        """
+        requirements = cls.get_data_requirements(FOV_name=FOV_name)
+        revision = cls.REVISION
+        FOV_index = int(FOV_name.replace("FOV_", ""))
+        plane_name = f"plane{FOV_index}"
+
+        start_time = time.time()
+
+        # NO try-except - let it fail if files missing
+        one.load_object(eid, obj="mpci", collection=f"alf/{FOV_name}", download_only=download_only, revision=revision)
+        one.load_dataset(
+            eid,
+            "imaging.frames_motionRegistered.bin",
+            collection=f"suite2/{plane_name}",
+            download_only=download_only,
+        )
+
+        download_time = time.time() - start_time
+
+        if verbose:
+            print(f"  Downloaded motion corrected imaging data for {FOV_name} in {download_time:.2f}s")
+
+        return {
+            "success": True,
+            "downloaded_objects": ["mpci", "imaging.frames_motionRegistered"],
+            "downloaded_files": requirements["exact_files_options"]["standard"],
+            "already_cached": [],
+            "alternative_used": None,
+            "data": None,
         }
 
     @classmethod

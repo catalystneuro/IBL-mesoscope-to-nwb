@@ -1,6 +1,6 @@
+import time
 from typing import Optional
 
-from iblatlas import atlas
 import numpy as np
 from ibl_to_nwb.datainterfaces._base_ibl_interface import BaseIBLDataInterface
 from iblatlas.atlas import MRITorontoAtlas
@@ -74,6 +74,69 @@ class MesoscopeROIAnatomicalLocalizationInterface(BaseIBLDataInterface):
     def get_load_object_kwargs(self) -> dict:
         """Return kwargs for one.load_object() call."""
         return {"obj": "mpciROIs", "collection": f"alf/{self.FOV_name}"}
+
+    @classmethod
+    def download_data(
+        cls,
+        one: ONE,
+        eid: str,
+        FOV_name: str,
+        download_only: bool = True,
+        verbose: bool = False,
+        **kwargs,
+    ) -> dict:
+        """
+        Download anatomical localization data.
+
+        NOTE: Uses class-level REVISION attribute automatically.
+
+        Parameters
+        ----------
+        one : ONE
+            ONE API instance
+        eid : str
+            Session ID
+        FOV_name : str
+            Field of view name (e.g. "FOV_00", "FOV_01", etc.) to specify which ROI localization data to download
+        download_only : bool, default=True
+            If True, download but don't load into memory
+        verbose : bool, default=False
+            If True, print download status and timing information
+
+        Returns
+        -------
+        dict
+            Download status
+        """
+        requirements = cls.get_data_requirements(
+            FOV_name=FOV_name
+        )  # pass FOV_name from kwargs to get_data_requirements
+
+        # Use class-level REVISION attribute
+        revision = cls.REVISION
+
+        start_time = time.time()
+
+        # NO try-except - let it fail if files missing
+        one.load_object(
+            eid, obj="mpciROIs", collection=f"alf/{FOV_name}", download_only=download_only, revision=revision
+        )
+
+        download_time = time.time() - start_time
+
+        if verbose:
+            print(f"  Downloaded ROI localization data for {FOV_name} in {download_time:.2f}s")
+
+        # SessionLoader handles format detection internally, report BWM format as default
+        # (it will fall back to legacy if needed)
+        return {
+            "success": True,
+            "downloaded_objects": ["mpciROIs"],
+            "downloaded_files": requirements["exact_files_options"]["standard"],
+            "already_cached": [],
+            "alternative_used": None,
+            "data": None,
+        }
 
     @classmethod
     def check_availability(cls, one: ONE, eid: str, **kwargs) -> dict:
@@ -520,6 +583,69 @@ class MesoscopeImageAnatomicalLocalizationInterface(BaseIBLDataInterface):
         result.update(extra_fields)
 
         return result
+
+    @classmethod
+    def download_data(
+        cls,
+        one: ONE,
+        eid: str,
+        FOV_name: str,
+        download_only: bool = True,
+        verbose: bool = False,
+        **kwargs,
+    ) -> dict:
+        """
+        Download anatomical localization data.
+
+        NOTE: Uses class-level REVISION attribute automatically.
+
+        Parameters
+        ----------
+        one : ONE
+            ONE API instance
+        eid : str
+            Session ID
+        FOV_name : str
+            Field of view name (e.g. "FOV_00", "FOV_01", etc.) to specify which ROI localization data to download
+        download_only : bool, default=True
+            If True, download but don't load into memory
+        verbose : bool, default=False
+            If True, print download status and timing information
+
+        Returns
+        -------
+        dict
+            Download status
+        """
+        requirements = cls.get_data_requirements(
+            FOV_name=FOV_name
+        )  # pass FOV_name from kwargs to get_data_requirements
+
+        # Use class-level REVISION attribute
+        revision = cls.REVISION
+
+        start_time = time.time()
+
+        # NO try-except - let it fail if files missing
+        one.load_object(
+            eid, obj="mpciMeanImage", collection=f"alf/{FOV_name}", download_only=download_only, revision=revision
+        )
+
+        download_time = time.time() - start_time
+
+        if verbose:
+            print(f"  Downloaded mean image data for {FOV_name} in {download_time:.2f}s")
+
+        # SessionLoader handles format detection internally, report BWM format as default
+        # (it will fall back to legacy if needed)
+        return {
+            "success": True,
+            "downloaded_objects": ["mpciMeanImage"],
+            "downloaded_files": requirements["exact_files_options"]["standard"],
+            "already_cached": [],
+            "alternative_used": None,
+            "data": None,
+        }
 
     def _add_coordinate_spaces(self, nwbfile: NWBFile):
         """Add coordinate spaces to the NWB file.
