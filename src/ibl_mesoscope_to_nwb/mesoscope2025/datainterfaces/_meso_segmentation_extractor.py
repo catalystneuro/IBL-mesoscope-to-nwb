@@ -40,11 +40,13 @@ class MesoscopeSegmentationExtractor(SegmentationExtractor):
             self.add_background = True
         super().__init__()
 
-        self._channel_names = ["OpticalChannel"]  # TODO update for dual plane
+        self._channel_names = ["OpticalChannel"]
 
         self.set_property(key="classifier", values=self.cell_classifier, ids=range(len(self.cell_classifier)))
         self.set_property(key="UUID", values=self.uuids, ids=range(len(self.uuids)))
         self.set_property(key="time_offset", values=self.time_offsets, ids=range(len(self.time_offsets)))
+
+        # TODO: add property descriptions
 
     def get_accepted_list(self) -> list[int]:
         if not hasattr(self, "iscell"):
