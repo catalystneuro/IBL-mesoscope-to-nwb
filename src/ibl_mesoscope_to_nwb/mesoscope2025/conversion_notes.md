@@ -142,9 +142,9 @@ Located in `raw_task_data_00/`:
 
 #### Task 1: Passive Video
 Located in `raw_task_data_01/`:
-- Passive video stimulus data
-- Video file
-- Task settings
+- Passive video stimulus data (`_sp_taskData.raw.pqt`) — per-interval start/stop timestamps
+- Video file (`_sp_video.raw.mp4`) — MP4 video played as visual stimulus
+- Task settings (`_iblrig_taskSettings.raw.json`) — protocol parameters and epoch timing
 
 #### Camera Data
 - **Left camera**: 60 fps, 1280x1024 resolution
@@ -271,8 +271,8 @@ This approach allows efficient extraction of individual FOV data from multi-tile
 
 The IBL mesoscope data is converted to NWB format through two complementary pipelines:
 
-1. **Raw Pipeline** (`raw.py`) - Converts raw acquisition data (imaging, videos, DAQ)
-2. **Processed Pipeline** (`processed.py`) - Converts analyzed data (segmentation, tracking, behavior)
+1. **Raw Pipeline** (`raw.py`) - Converts raw acquisition data (imaging, videos, DAQ, task settings, visual stimulus)
+2. **Processed Pipeline** (`processed.py`) - Converts analyzed data (segmentation, anatomical localization, tracking, behavior, task settings)
 
 Both pipelines produce BIDS-compliant NWB files following the naming convention:
 ```
@@ -283,27 +283,31 @@ sub-{subject}/sub-{subject}_ses-{eid}_desc-{raw|processed}_behavior+ophys.nwb
 
 | Data Stream | Raw Pipeline | Processed Pipeline | NWB Container |
 |-------------|--------------|-------------------|---------------|
-| **Optical Physiology** |
+| **Optical Physiology** | | | |
 | Raw imaging (TIFF) | ✓ | | `TwoPhotonSeries` (acquisition) |
 | Motion-corrected imaging | | ✓ | `TwoPhotonSeries` (processing/ophys) |
 | Segmentation (ROIs) | | ✓ | `PlaneSegmentation` (processing/ophys) |
-| ROI anatomical localization | | ✓ | `AnatomicalCoordinatesTable` (lab_meta_data) |
-| Mean image localization | | ✓ | `AnatomicalCoordinatesImage` (lab_meta_data) |
-| **Behavioral Tasks** |
+| ROI anatomical localization (IBL-Bregma) | | ✓ | `AnatomicalCoordinatesTable` (lab_meta_data) |
+| ROI anatomical localization (Allen CCF v3) | | ✓ | `AnatomicalCoordinatesTable` (lab_meta_data) |
+| Mean image localization (IBL-Bregma) | | ✓ | `AnatomicalCoordinatesImage` (lab_meta_data) |
+| Mean image localization (Allen CCF v3) | | ✓ | `AnatomicalCoordinatesImage` (lab_meta_data) |
+| **Behavioral Tasks** | | | |
 | Trials (task events) | | ✓ | `TimeIntervals["trials"]` |
 | Wheel position | | ✓ | `SpatialSeries` (processing/behavior) |
 | Wheel kinematics | | ✓ | `TimeSeries` (processing/behavior) |
 | Wheel movements | | ✓ | `TimeIntervals` (processing/behavior) |
 | Licks | | ✓ | `Events` (processing/behavior) |
-| Session epochs | | ✓ | `TimeIntervals` (intervals) |
+| Session epochs (task settings) | ✓ | ✓ | `TimeIntervals["epochs"]` (intervals) |
 | Passive intervals | | ✓ | `TimeIntervals` (intervals) |
 | Passive replay stimuli | | ✓ | `TimeIntervals` (intervals) |
-| **Camera Data** |
+| Visual stimulus video | ✓ | | `OpticalSeries` (stimulus_templates) |
+| Visual stimulus intervals | ✓ | | `TimeIntervals` (stimulus) |
+| **Camera Data** | | | |
 | Raw videos | ✓ | | `ImageSeries` (acquisition) |
 | Pose estimation | | ✓ | `PoseEstimation` (processing/behavior) |
 | Pupil tracking | | ✓ | `TimeSeries` (processing/behavior) |
 | ROI motion energy | | ✓ | `TimeSeries` (processing/behavior) |
-| **Synchronization** |
+| **Synchronization** | | | |
 | DAQ board signals | ✓ | | `TimeSeries`/`LabeledEvents` (acquisition) |
 
 ### Data Flow Diagrams
@@ -329,6 +333,16 @@ raw_video_data/
 
 alf/
 └── _ibl_*Camera.times.npy     ──→  (timestamps for videos)
+
+raw_task_data_XX/
+├── _iblrig_taskSettings.raw.json ──→  TaskSettingsInterface       ──→  TimeIntervals["epochs"]
+│                                                                        (nwbfile.epochs)
+│
+└── (passiveVideo collection):
+    ├── _sp_video.raw.mp4         ──→  VisualStimulusInterface     ──→  OpticalSeries
+    └── _sp_taskData.raw.pqt                                            (stimulus_templates)
+                                                                        TimeIntervals
+                                                                        (nwbfile.stimulus)
 ```
 
 #### Processed Pipeline Data Flow
@@ -357,6 +371,10 @@ alf/FOV_XX/
 
 BEHAVIORAL TASKS
 ────────────────
+_ibl_experiment.description  ──→  TaskSettingsInterface           ──→  TimeIntervals["epochs"]
+raw_task_data_XX/                                                       (nwbfile.epochs)
+└── _iblrig_taskSettings.raw.json
+
 alf/task_XX/
 ├── _ibl_trials.*.npy           ──→  BrainwideMapTrialsInterface   ──→  TimeIntervals["trials"]
 ├── wheel.position.npy          ──→  MesoscopeWheelPosition...     ──→  SpatialSeries
@@ -450,28 +468,48 @@ alf/
 
 #### Anatomical Localization (ndx-anatomical-localization)
 
+Anatomical localization is provided in **two coordinate spaces** for both ROIs
+(`MesoscopeROIAnatomicalLocalizationInterface`) and mean projection images
+(`MesoscopeImageAnatomicalLocalizationInterface`).
+
 **Source Files for ROIs:**
-- `alf/FOV_{XX}/mpciROIs.mlapdv_estimate.npy` - ML, AP, DV coordinates (µm)
+
+- `alf/FOV_{XX}/mpciROIs.mlapdv_estimate.npy` - ML, AP, DV coordinates in IBL-Bregma space (µm)
 - `alf/FOV_{XX}/mpciROIs.brainLocationIds_ccf_2017_estimate.npy` - Allen CCF 2017 region IDs
 
 **Source Files for Mean Images:**
-- `alf/FOV_{XX}/mpciMeanImage.mlapdv_estimate.npy` - Per-pixel coordinates
+
+- `alf/FOV_{XX}/mpciMeanImage.mlapdv_estimate.npy` - Per-pixel ML/AP/DV coordinates (µm)
 - `alf/FOV_{XX}/mpciMeanImage.brainLocationIds_ccf_2017_estimate.npy` - Per-pixel region IDs
 
+**Coordinate Spaces:**
+
+*IBL-Bregma*: RAS orientation, origin = bregma, units = µm.
+  x = ML (mediolateral, +right), y = AP (anteroposterior, +anterior), z = DV (+dorsal).
+  Raw ML/AP/DV values are stored directly from `mlapdv_estimate`.
+
+*Allen CCF v3*: PIR orientation (AP, DV, ML), units = µm.
+  Converted from IBL-Bregma using `iblatlas.atlas.MRITorontoAtlas(res_um=10)`.
+  Conversion: divide by 1e6 (µm → m), negate AP axis (IBL +anterior → CCF +posterior),
+  then call `atlas.xyz2ccf(xyz, ccf_order="apdvml")`.
+
 **Processing:**
-- Uses ndx-anatomical-localization extension
-- Defines IBL-Bregma coordinate space (RAS orientation, µm units)
-- Links to existing PlaneSegmentation or mean image objects
+
+- Both spaces are registered in a shared `Localization` container in `nwbfile.lab_meta_data`
+- Per-ROI coordinates: one row per ROI in the linked `PlaneSegmentation`
+- Per-pixel coordinates (images): reshaped from (H, W, 3) → (H×W, 3) for atlas lookup,
+  then reshaped back to (H, W) per axis
 
 **NWB Output:**
-- `Localization` container in `nwbfile.lab_meta_data`
-- `Space` object: IBL-Bregma coordinate system
-- `AnatomicalCoordinatesTable`: ROI coordinates and brain region IDs
-  - Naming: `ROIsIBLBregmaAnatomicalCoordinatesFOV{XX}`
-  - Links to: `PlaneSegmentationFOV{XX}`
-- `AnatomicalCoordinatesImage`: Mean image coordinates
-  - Naming: `MeanImageIBLBregmaAnatomicalCoordinatesFOV{XX}`
-  - Per-pixel coordinates and brain region IDs
+
+- `Localization` container in `nwbfile.lab_meta_data["localization"]`
+- Two registered `Space` objects: `IBLBregma` and `AllenCCFv3`
+- Per-FOV `AnatomicalCoordinatesTable` objects (ROI-level, links to `PlaneSegmentationFOV{XX}`):
+  - `AnatomicalCoordinatesTableIBLBregmaROIFOV{XX}` — IBL-Bregma coordinates + brain region IDs
+  - `AnatomicalCoordinatesTableCCFv3ROIFOV{XX}` — Allen CCF v3 coordinates + brain region IDs
+- Per-FOV `AnatomicalCoordinatesImage` objects (pixel-level, links to `MotionCorrectedTwoPhotonSeriesFOV{XX}`):
+  - `AnatomicalCoordinatesImageIBLBregmaFOV{XX}` — per-pixel IBL-Bregma coordinates
+  - `AnatomicalCoordinatesImageCCFv3FOV{XX}` — per-pixel Allen CCF v3 coordinates
 
 ### Behavioral Data Streams
 
@@ -521,18 +559,68 @@ alf/
 - `Events` object: Timestamped lick events
 - Located in: `nwbfile.processing["behavior"]`
 
-#### Session Structure
+#### Session Task Settings and Epochs (TimeIntervals)
 
-**Session Epochs:**
-- Defines high-level task vs passive phases
-- Source: Derived from task metadata
-- Output: `TimeIntervals` in `nwbfile.intervals`
+**Interface:** `TaskSettingsInterface` — used in **both raw and processed** pipelines.
+
+**Source Files:**
+
+- `_ibl_experiment.description` — lists all protocol names and their raw data collections
+- `raw_task_data_{XX}/_iblrig_taskSettings.raw.json` — one file per protocol, contains
+  `SESSION_START_TIME` and `SESSION_END_TIME` as ISO timestamps
+
+**Processing:**
+
+- Iterates over all protocols in `_ibl_experiment.description` using ibllib's
+  `get_task_protocol()` / `get_task_collection()`
+- Converts ISO timestamps to seconds relative to the NWB session start time
+  (applying the lab timezone from Alyx)
+- Maps protocol names to `protocol_type` and `protocol_description` via `PROTOCOLS_MAPPING`
+  in `utils/tasks.py`
+
+**NWB Output:**
+
+- `TimeIntervals` table named `epochs` stored in `nwbfile.epochs`
+- One row per protocol with columns:
+  - `protocol_type` — short label (e.g. "task", "passive", "habituation")
+  - `protocol_description` — human-readable description of the protocol
+  - `task_settings` — full `_iblrig_taskSettings.raw.json` content as a string
+
+#### Visual Stimulus (OpticalSeries + TimeIntervals)
+
+**Interface:** `VisualStimulusInterface` — used in the **raw** pipeline only.
+
+**Source Files:**
+
+- `raw_task_data_{XX}/_sp_video.raw.mp4` — MP4 video played as visual stimulus
+  during the passive protocol
+- `raw_task_data_{XX}/_sp_taskData.raw.pqt` — Parquet table with per-interval
+  Unix timestamps (`intervals_0`, `intervals_1`)
+
+**Processing:**
+
+- Automatically locates the passiveVideo collection from `_ibl_experiment.description`
+  using `find_passiveVideo_collection()`
+- Reads video frame rate with `cv2.VideoCapture`
+- Converts Unix timestamps in `_sp_taskData` to seconds relative to the NWB session
+  start time (applying the lab timezone from Alyx)
+
+**NWB Output:**
+
+- `OpticalSeries` named `visual_stimulus_video` in `nwbfile.stimulus_templates`
+  (external reference to the MP4 file; not embedded in NWB)
+- `TimeIntervals` named `visual_stimulus_intervals` in `nwbfile.stimulus`
+  - Columns: `start_time`, `stop_time`, `visual_stimulus` (link to the `OpticalSeries`)
+
+#### Session Structure — Passive Intervals and Replay Stimuli
 
 **Passive Intervals:**
+
 - Source: `alf/passivePeriods.*.npy`
 - Output: `TimeIntervals` marking passive stimulus presentation periods
 
 **Passive Replay Stimuli:**
+
 - Source: `alf/passiveGabor.table.csv`
 - Output: `TimeIntervals` with stimulus parameters (contrast, position, phase)
 
