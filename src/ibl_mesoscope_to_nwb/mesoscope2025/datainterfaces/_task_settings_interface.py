@@ -119,15 +119,25 @@ class TaskSettingsInterface(BaseIBLDataInterface):
 
         start_time = time.time()
 
-        # Download the intervals table
-        # Note: Must separate collection and filename for ONE API
-        one.load_dataset(
-            eid,
-            "_iblrig_taskSettings.raw.json",
-            collection="alf",
-            revision=revision,
-            download_only=download_only,
-        )
+        # Load experiment description to iterate over protocols and their collections
+        experiment_description = one.load_dataset(id=eid, dataset="_ibl_experiment.description")
+        protocols = get_task_protocol(experiment_description)
+
+        if protocols is None:
+            raise ValueError(
+                f"No task protocols found in experiment description for session {eid}. "
+                "Cannot extract epoch timing without protocol definitions."
+            )
+        for protocol in protocols:
+            collection = get_task_collection(experiment_description, protocol)
+            # Note: Must separate collection and filename for ONE API
+            one.load_dataset(
+                eid,
+                "_iblrig_taskSettings.raw.json",
+                collection=collection,
+                revision=revision,
+                download_only=download_only,
+            )
 
         download_time = time.time() - start_time
 
