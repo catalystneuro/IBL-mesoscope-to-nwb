@@ -25,6 +25,26 @@ class MesoscopeROIAnatomicalLocalizationInterface(BaseIBLDataInterface):
     REVISION: str | None = None
 
     def __init__(self, one: ONE, session: str, FOV_name: str):
+        """Initialize the ROI anatomical localization interface.
+
+        Validates that the given FOV_name exists for the session and sets up
+        IBL-Bregma and Allen CCF v3 coordinate space objects.
+
+        Parameters
+        ----------
+        one : ONE
+            ONE API instance for data access.
+        session : str
+            Session ID (experiment UUID / eid).
+        FOV_name : str
+            Field of view name (e.g. "FOV_00", "FOV_01"). Must match an entry
+            returned by `get_FOV_names_from_alf_collections`.
+
+        Raises
+        ------
+        ValueError
+            If `FOV_name` is not found in the session's ALF collections.
+        """
         self.one = one
         self.session = session
         self.revision = self.REVISION
@@ -280,7 +300,24 @@ class MesoscopeROIAnatomicalLocalizationInterface(BaseIBLDataInterface):
             localization.add_spaces([self.ibl_bregma_space, self.allen_ccf_space])  # register both coordinate spaces
 
     def _ensure_plane_segmentation_exists(self, nwbfile: NWBFile):
+        """Retrieve the PlaneSegmentation for this FOV from the NWB file.
 
+        Parameters
+        ----------
+        nwbfile : NWBFile
+            The NWB file to search.
+
+        Returns
+        -------
+        PlaneSegmentation
+            The plane segmentation table for this FOV.
+
+        Raises
+        ------
+        ValueError
+            If the 'ophys' processing module, ImageSegmentation container, or
+            the PlaneSegmentation for this FOV does not exist or is empty.
+        """
         if "ophys" not in nwbfile.processing:
             raise ValueError("No 'ophys' processing module found in NWB file.")
 
@@ -316,6 +353,24 @@ class MesoscopeROIAnatomicalLocalizationInterface(BaseIBLDataInterface):
         return plane_segmentation
 
     def _build_anatomical_coordinates_table(self, nwbfile: NWBFile):
+        """Build AnatomicalCoordinatesTable objects for IBL-Bregma and Allen CCF v3 spaces.
+
+        Loads ROI coordinates from `mpciROIs.mlapdv_estimate` (ML, AP, DV in µm,
+        IBL-Bregma RAS space) and brain region IDs from
+        `mpciROIs.brainLocationIds_ccf_2017_estimate`, then converts IBL-Bregma
+        coordinates to Allen CCF v3 (AP, DV, ML in µm) using the MRI Toronto atlas.
+
+        Parameters
+        ----------
+        nwbfile : NWBFile
+            The NWB file containing the target PlaneSegmentation.
+
+        Returns
+        -------
+        tuple[AnatomicalCoordinatesTable, AnatomicalCoordinatesTable]
+            A pair of tables: (IBL-Bregma table, Allen CCF v3 table).
+            Each row corresponds to one ROI in the PlaneSegmentation.
+        """
         # Get anatomical localization data
         rois = self.one.load_object(self.session, **self.get_load_object_kwargs())
         rois_mlapdv = rois["mlapdv_estimate"]
@@ -415,6 +470,26 @@ class MesoscopeImageAnatomicalLocalizationInterface(BaseIBLDataInterface):
     REVISION: str | None = None
 
     def __init__(self, one: ONE, session: str, FOV_name: str):
+        """Initialize the mean image anatomical localization interface.
+
+        Validates that the given FOV_name exists for the session and sets up
+        IBL-Bregma and Allen CCF v3 coordinate space objects.
+
+        Parameters
+        ----------
+        one : ONE
+            ONE API instance for data access.
+        session : str
+            Session ID (experiment UUID / eid).
+        FOV_name : str
+            Field of view name (e.g. "FOV_00", "FOV_01"). Must match an entry
+            returned by `get_FOV_names_from_alf_collections`.
+
+        Raises
+        ------
+        ValueError
+            If `FOV_name` is not found in the session's ALF collections.
+        """
         self.one = one
         self.session = session
         self.revision = self.REVISION
@@ -670,7 +745,24 @@ class MesoscopeImageAnatomicalLocalizationInterface(BaseIBLDataInterface):
             localization.add_spaces([self.ibl_bregma_space, self.allen_ccf_space])  # register both coordinate spaces
 
     def _ensure_mean_projection_image_exists(self, nwbfile: NWBFile):
+        """Retrieve the mean projection image for this FOV from the NWB file.
 
+        Parameters
+        ----------
+        nwbfile : NWBFile
+            The NWB file to search.
+
+        Returns
+        -------
+        GrayscaleImage
+            The mean projection image for this FOV.
+
+        Raises
+        ------
+        ValueError
+            If the 'ophys' processing module, SegmentationImages container, or
+            the mean image for this FOV does not exist.
+        """
         if "ophys" not in nwbfile.processing:
             raise ValueError("No 'ophys' processing module found in NWB file.")
 
@@ -699,6 +791,24 @@ class MesoscopeImageAnatomicalLocalizationInterface(BaseIBLDataInterface):
         return mean_image
 
     def _ensure_photon_series_exists(self, nwbfile: NWBFile):
+        """Retrieve the motion-corrected TwoPhotonSeries for this FOV from the NWB file.
+
+        Parameters
+        ----------
+        nwbfile : NWBFile
+            The NWB file to search.
+
+        Returns
+        -------
+        TwoPhotonSeries
+            The motion-corrected photon series for this FOV.
+
+        Raises
+        ------
+        ValueError
+            If the 'ophys' processing module or the
+            MotionCorrectedTwoPhotonSeries for this FOV does not exist.
+        """
         if "ophys" not in nwbfile.processing:
             raise ValueError("No 'ophys' processing module found in NWB file.")
         motion_corrected_photon_series = None
@@ -716,6 +826,25 @@ class MesoscopeImageAnatomicalLocalizationInterface(BaseIBLDataInterface):
         return motion_corrected_photon_series
 
     def _build_anatomical_coordinates_image(self, nwbfile: NWBFile):
+        """Build AnatomicalCoordinatesImage objects for IBL-Bregma and Allen CCF v3 spaces.
+
+        Loads per-pixel coordinates from `mpciMeanImage.mlapdv_estimate` (shape H×W×3,
+        ML/AP/DV in µm, IBL-Bregma RAS space) and brain region IDs from
+        `mpciMeanImage.brainLocationIds_ccf_2017_estimate`, then converts IBL-Bregma
+        pixel coordinates to Allen CCF v3 (AP, DV, ML in µm) using the MRI Toronto atlas.
+
+        Parameters
+        ----------
+        nwbfile : NWBFile
+            The NWB file containing the target mean image and motion-corrected series.
+
+        Returns
+        -------
+        tuple[AnatomicalCoordinatesImage, AnatomicalCoordinatesImage]
+            A pair of images: (IBL-Bregma image, Allen CCF v3 image).
+            Each image stores per-pixel (x, y, z) coordinates matching the
+            mean projection image dimensions (H×W).
+        """
         mean_image = self._ensure_mean_projection_image_exists(nwbfile)
         motion_corrected_photon_series = self._ensure_photon_series_exists(nwbfile)
 

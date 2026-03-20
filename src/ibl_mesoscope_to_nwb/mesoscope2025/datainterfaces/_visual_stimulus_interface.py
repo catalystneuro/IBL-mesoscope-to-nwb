@@ -1,9 +1,9 @@
 """
-Interface for passive period intervals (detailed passive phase timing).
+Interface for passive video visual stimulus data.
 
-This module provides an interface for adding detailed passive protocol interval timing to NWB files,
-defining when different phases of the passive period occur (spontaneous activity, RFM, task replay).
-The intervals are stored in a custom TimeIntervals table in the processing module.
+This module provides an interface for adding visual stimulus information from passive protocol
+sessions to NWB files. It stores the stimulus video as an OpticalSeries template and records
+presentation intervals in a TimeIntervals table linked to the video.
 """
 
 import logging
@@ -24,7 +24,13 @@ from pynwb.image import OpticalSeries
 
 class VisualStimulusInterface(BaseIBLDataInterface):
     """
-    Interface for adding visual stimulus information from passive protocol sessions to NWB files.
+    Interface for adding visual stimulus data from passive protocol sessions to NWB files.
+
+    Adds an `OpticalSeries` stimulus template (referencing the external MP4 video file)
+    and a `TimeIntervals` table (`visual_stimulus_intervals`) that records the start and
+    stop time of each video presentation relative to the NWB session start time.
+    The interface locates the passive video collection automatically from
+    `_ibl_experiment.description`.
     """
 
     REVISION = None
@@ -65,14 +71,14 @@ class VisualStimulusInterface(BaseIBLDataInterface):
         session: str,
     ):
         """
-        Initialize the passive intervals interface.
+        Initialize the visual stimulus interface.
 
         Parameters
         ----------
         one : ONE
-            ONE API instance for data access
+            ONE API instance for data access.
         session : str
-            Session ID (eid)
+            Session ID (eid).
         """
         super().__init__()
         self.one = one

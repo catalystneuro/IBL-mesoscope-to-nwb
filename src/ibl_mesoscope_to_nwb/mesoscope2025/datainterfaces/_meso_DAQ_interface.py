@@ -153,9 +153,17 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
     def __init__(self, one: ONE, session: str, metadata_key: str = "IblDAQ"):
         """Initialize the MesoscopeDAQInterface.
 
-        Args:
-            one (ONE): An instance of the ONE API.
-            session (str): The session ID.
+        Loads the DAQ metadata JSON and raw data object from the ONE cache,
+        builds analog and digital channel groups from the wiring configuration.
+
+        Parameters
+        ----------
+        one : ONE
+            ONE API instance for data access.
+        session : str
+            Session ID (experiment UUID / eid).
+        metadata_key : str, default="IblDAQ"
+            Key used to look up device metadata in the YAML metadata file.
         """
         self.one = one
         self.session = session
