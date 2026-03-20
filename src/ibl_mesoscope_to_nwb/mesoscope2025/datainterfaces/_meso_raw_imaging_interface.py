@@ -1,3 +1,5 @@
+import tarfile
+import time
 from copy import deepcopy
 from pathlib import Path
 from typing import Literal
@@ -85,6 +87,97 @@ class MesoscopeRawImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInt
                     f"raw_imaging_data_00/rawImagingData.times_scanImage.npy",
                 ]
             },
+        }
+
+    @classmethod
+    def download_data(
+        cls,
+        one: ONE,
+        eid: str,
+        decompress: bool = True,
+        download_only: bool = True,
+        verbose: bool = False,
+        **kwargs,
+    ) -> dict:
+        """
+        Download raw imaging data for all imaging blocks in the session and optionally decompress.
+
+        Downloads all raw_imaging_data_* collections (one per imaging block). If decompress=True,
+        each imaging.frames.tar.bz2 is extracted in-place after download.
+
+        Parameters
+        ----------
+        one : ONE
+            ONE API instance
+        eid : str
+            Session ID
+        decompress : bool, default=True
+            If True, extract imaging.frames.tar.bz2 files after downloading
+        download_only : bool, default=True
+            If True, download files but don't load into memory
+        verbose : bool, default=False
+            If True, print download status and timing information
+
+        Returns
+        -------
+        dict
+            Download status
+        """
+        requirements = cls.get_data_requirements()
+
+        start_time = time.time()
+
+        # Discover all raw_imaging_data_* collections (excludes reference)
+        all_datasets = one.list_datasets(eid)
+        raw_imaging_collections = sorted(
+            set(
+                str(d).split("/")[0]
+                for d in all_datasets
+                if str(d).startswith("raw_imaging_data") and "reference" not in str(d)
+            )
+        )
+
+        downloaded_files = []
+        for collection in raw_imaging_collections:
+            # NO try-except - let it fail if files missing
+            one.load_object(eid, obj="imaging", collection=collection, download_only=download_only)
+            one.load_object(eid, obj="rawImagingData", collection=collection, download_only=download_only)
+            downloaded_files.extend(
+                [f"{collection}/imaging.frames.tar.bz2", f"{collection}/rawImagingData.times_scanImage.npy"]
+            )
+
+        # Decompress tar.bz2 files after download
+        if decompress:
+            session_path = one.eid2path(eid)
+            for collection in raw_imaging_collections:
+                tar_path = Path(session_path) / collection / "imaging.frames.tar.bz2"
+                if tar_path.exists():
+                    extract_path = tar_path.parent / "imaging.frames"
+                    if extract_path.exists() and any(extract_path.iterdir()):
+                        if verbose:
+                            print(f"  Skipping decompression, already extracted: {extract_path}")
+                        continue
+                    if verbose:
+                        print(f"  Decompressing {tar_path}...")
+                    extract_path.mkdir(exist_ok=True)
+                    with tarfile.open(tar_path, "r:*") as tar:
+                        tar.extractall(path=extract_path)
+
+        download_time = time.time() - start_time
+
+        if verbose:
+            print(
+                f"  Downloaded{' and decompressed' if decompress else ''} raw imaging data "
+                f"({len(raw_imaging_collections)} collections) in {download_time:.2f}s"
+            )
+
+        return {
+            "success": True,
+            "downloaded_objects": ["imaging", "rawImagingData"],
+            "downloaded_files": requirements["exact_files_options"]["standard"],
+            "already_cached": [],
+            "alternative_used": None,
+            "data": None,
         }
 
     @classmethod

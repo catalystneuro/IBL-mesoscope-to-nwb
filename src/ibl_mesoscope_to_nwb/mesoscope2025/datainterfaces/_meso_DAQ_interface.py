@@ -1,3 +1,4 @@
+import time
 import warnings
 from pathlib import Path
 
@@ -95,12 +96,74 @@ class MesoscopeDAQInterface(BaseIBLDataInterface):
             },
         }
 
+    @classmethod
+    def download_data(
+        cls,
+        one: ONE,
+        eid: str,
+        download_only: bool = True,
+        verbose: bool = False,
+        **kwargs,
+    ) -> dict:
+        """
+        Download DAQ timeline data.
+
+        NOTE: Uses class-level REVISION attribute automatically.
+
+        Parameters
+        ----------
+        one : ONE
+            ONE API instance
+        eid : str
+            Session ID
+        download_only : bool, default=True
+            If True, download but don't load into memory
+        verbose : bool, default=False
+            If True, print download status and timing information
+
+        Returns
+        -------
+        dict
+            Download status
+        """
+        requirements = cls.get_data_requirements()
+
+        # Use class-level REVISION attribute
+        revision = cls.REVISION
+
+        start_time = time.time()
+
+        # NO try-except - let it fail if files missing
+        one.load_object(eid, obj="DAQdata", collection="raw_sync_data", download_only=download_only, revision=revision)
+
+        download_time = time.time() - start_time
+
+        if verbose:
+            print(f"  Downloaded DAQ timeline data in {download_time:.2f}s")
+
+        return {
+            "success": True,
+            "downloaded_objects": ["DAQdata"],
+            "downloaded_files": requirements["exact_files_options"]["standard"],
+            "already_cached": [],
+            "alternative_used": None,
+            "data": None,
+        }
+
     def __init__(self, one: ONE, session: str, metadata_key: str = "IblDAQ"):
         """Initialize the MesoscopeDAQInterface.
 
-        Args:
-            one (ONE): An instance of the ONE API.
-            session (str): The session ID.
+        Loads the DAQ metadata JSON and raw data object from the ONE cache,
+        builds analog and digital channel groups from the wiring configuration.
+
+        Parameters
+        ----------
+        one : ONE
+            ONE API instance for data access.
+        session : str
+            Session ID (experiment UUID / eid).
+        metadata_key : str, default="IblDAQ"
+            Key used to look up device metadata in the YAML metadata file.
         """
         self.one = one
         self.session = session

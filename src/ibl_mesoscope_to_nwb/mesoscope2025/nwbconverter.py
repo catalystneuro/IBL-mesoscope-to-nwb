@@ -13,6 +13,22 @@ from ibl_mesoscope_to_nwb.mesoscope2025.utils import get_ibl_subject_metadata, g
 
 
 class IblConverter(ConverterPipe):
+    """Base NWB converter for IBL sessions.
+
+    Fetches session-level metadata (start time, timezone, lab, institution, protocol,
+    subject) from the Alyx REST API and merges it into the NWB metadata dict.
+
+    Parameters
+    ----------
+    one : ONE
+        ONE API instance for accessing IBL data.
+    session : str
+        Session ID (experiment UUID / eid).
+    data_interfaces : list[BaseDataInterface] | dict[str, BaseDataInterface]
+        Data interfaces to include in the conversion.
+    verbose : bool, default=False
+        If True, print progress messages during conversion.
+    """
 
     def __init__(
         self,
@@ -21,11 +37,31 @@ class IblConverter(ConverterPipe):
         data_interfaces: list[BaseDataInterface] | dict[str, BaseDataInterface],
         verbose=False,
     ) -> Self:
+        """Initialize the IBL converter.
+
+        Parameters
+        ----------
+        one : ONE
+            ONE API instance for accessing IBL data.
+        session : str
+            Session ID (experiment UUID / eid).
+        data_interfaces : list[BaseDataInterface] | dict[str, BaseDataInterface]
+            Data interfaces to include in the conversion.
+        verbose : bool, default=False
+            If True, print progress messages during conversion.
+        """
         self.one = one
         self.session = session
         super().__init__(data_interfaces=data_interfaces, verbose=verbose)
 
     def get_metadata_schema(self) -> dict:
+        """Return the metadata schema, allowing additional properties for Subject.
+
+        Returns
+        -------
+        dict
+            Metadata schema with additionalProperties enabled for the Subject block.
+        """
         metadata_schema = super().get_metadata_schema()
         metadata_schema["additionalProperties"] = True
         metadata_schema["properties"]["Subject"]["additionalProperties"] = True
@@ -33,6 +69,16 @@ class IblConverter(ConverterPipe):
         return metadata_schema
 
     def get_metadata(self) -> dict:
+        """Aggregate metadata from all interfaces and enrich with Alyx session data.
+
+        Fetches session start time (with lab timezone), lab name, institution,
+        task protocol, session description, and subject metadata from the Alyx REST API.
+
+        Returns
+        -------
+        dict
+            Metadata dictionary with NWBFile and Subject blocks populated.
+        """
         metadata = super().get_metadata()  # Aggregates from the interfaces
 
         (session_metadata,) = self.one.alyx.rest(url="sessions", action="list", id=self.session)
@@ -72,6 +118,16 @@ class RawMesoscopeNWBConverter(IblConverter):
     """Primary conversion class for raw IBL mesoscope datasets."""
 
     def get_metadata(self) -> dict:
+        """Return metadata merged with mesoscope general metadata YAML.
+
+        Extends base metadata with experiment-level metadata loaded from
+        `_metadata/mesoscope_general_metadata.yaml`.
+
+        Returns
+        -------
+        dict
+            Merged metadata dictionary.
+        """
         metadata = super().get_metadata()
 
         mesoscope_metadata_file_path = Path(__file__).parent / "_metadata" / "mesoscope_general_metadata.yaml"
@@ -81,6 +137,19 @@ class RawMesoscopeNWBConverter(IblConverter):
         return metadata
 
     def temporally_align_data_interfaces(self, metadata: dict | None = None, conversion_options: dict | None = None):
+        """Align raw imaging timestamps to the DAQ timeline.
+
+        For every `RawImaging` interface, uses the `MesoscopeDAQInterface` to
+        extract per-FOV timestamps from the Timeline DAQ recording and sets them
+        as the aligned timestamps on the imaging interface.
+
+        Parameters
+        ----------
+        metadata : dict | None, optional
+            Metadata dictionary (not used; accepted for API compatibility).
+        conversion_options : dict | None, optional
+            Conversion options dictionary (not used; accepted for API compatibility).
+        """
         if "DAQ" in self.data_interface_objects:
             daq_interface = self.data_interface_objects["DAQ"]
             for interface_name, interface in self.data_interface_objects.items():
@@ -94,6 +163,16 @@ class ProcessedMesoscopeNWBConverter(IblConverter):
     """Primary conversion class for processed IBL mesoscope datasets."""
 
     def get_metadata(self) -> dict:
+        """Return metadata merged with mesoscope general metadata YAML.
+
+        Extends base metadata with experiment-level metadata loaded from
+        `_metadata/mesoscope_general_metadata.yaml`.
+
+        Returns
+        -------
+        dict
+            Merged metadata dictionary.
+        """
         metadata = super().get_metadata()
 
         mesoscope_metadata_file_path = Path(__file__).parent / "_metadata" / "mesoscope_general_metadata.yaml"

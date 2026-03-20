@@ -1,9 +1,10 @@
-"""A segmentation extractor for Suite2p.
+"""A segmentation extractor for IBL Mesoscope segmentation output.
 
 Classes
 -------
 MesoscopeSegmentationExtractor
-    A segmentation extractor for Suite2p.
+    A segmentation extractor for IBL Mesoscope segmentation output.
+
 """
 
 from typing import List
@@ -20,7 +21,7 @@ from roiextractors.segmentationextractor import (
 
 
 class MesoscopeSegmentationExtractor(SegmentationExtractor):
-    """A segmentation extractor for IBL Mesoscope."""
+    """A segmentation extractor for IBL Mesoscope segmentation output."""
 
     extractor_name = "MesoscopeSegmentationExtractor"
     REVISION: str | None = None
@@ -39,11 +40,13 @@ class MesoscopeSegmentationExtractor(SegmentationExtractor):
             self.add_background = True
         super().__init__()
 
-        self._channel_names = ["OpticalChannel"]  # TODO update for dual plane
+        self._channel_names = ["OpticalChannel"]
 
         self.set_property(key="classifier", values=self.cell_classifier, ids=range(len(self.cell_classifier)))
         self.set_property(key="UUID", values=self.uuids, ids=range(len(self.uuids)))
         self.set_property(key="time_offset", values=self.time_offsets, ids=range(len(self.time_offsets)))
+
+        # TODO: add property descriptions
 
     def get_accepted_list(self) -> list[int]:
         if not hasattr(self, "iscell"):
@@ -274,7 +277,7 @@ class MesoscopeSegmentationExtractor(SegmentationExtractor):
         return self._background_image_masks
 
     def _create_rois_responses(self) -> List[_RoiResponse]:
-        """Load the ROI responses from the Suite2p output files.
+        """Load the ROI responses.
         Returns
         -------
         _roi_responses: List[_RoiResponse]

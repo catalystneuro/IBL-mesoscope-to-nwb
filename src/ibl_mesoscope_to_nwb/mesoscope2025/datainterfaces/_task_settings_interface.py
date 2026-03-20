@@ -25,11 +25,20 @@ from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
 
 class TaskSettingsInterface(BaseIBLDataInterface):
     """
-    Interface for session-level epoch timing data.
+    Interface for session-level epoch timing (task protocol epochs).
 
-    This interface handles the high-level epochs table that defines the two main
-    phases of an IBL session: the task/experiment phase and the passive phase.
-    TODO add more detailed description
+    Adds a `TimeIntervals` table named `epochs` to the NWB file. Each row
+    corresponds to one protocol run in the session (e.g. cuedBiasedChoiceWorld,
+    passiveVideo). Epoch start/stop times are derived from
+    `_iblrig_taskSettings.raw.json` (`SESSION_START_TIME` / `SESSION_END_TIME`
+    fields), converted to seconds relative to the NWB session start time.
+
+    Columns added to the epochs table:
+
+    - ``protocol_type``       : Short type label (e.g. "task", "passive").
+    - ``protocol_description``: Human-readable description of the protocol.
+    - ``task_settings``       : Full ``_iblrig_taskSettings.raw.json`` content
+                                serialised as a string.
     """
 
     REVISION = None
@@ -110,15 +119,25 @@ class TaskSettingsInterface(BaseIBLDataInterface):
 
         start_time = time.time()
 
-        # Download the intervals table
-        # Note: Must separate collection and filename for ONE API
-        one.load_dataset(
-            eid,
-            "_iblrig_taskSettings.raw.json",
-            collection="alf",
-            revision=revision,
-            download_only=download_only,
-        )
+        # Load experiment description to iterate over protocols and their collections
+        experiment_description = one.load_dataset(id=eid, dataset="_ibl_experiment.description")
+        protocols = get_task_protocol(experiment_description)
+
+        if protocols is None:
+            raise ValueError(
+                f"No task protocols found in experiment description for session {eid}. "
+                "Cannot extract epoch timing without protocol definitions."
+            )
+        for protocol in protocols:
+            collection = get_task_collection(experiment_description, protocol)
+            # Note: Must separate collection and filename for ONE API
+            one.load_dataset(
+                eid,
+                "_iblrig_taskSettings.raw.json",
+                collection=collection,
+                revision=revision,
+                download_only=download_only,
+            )
 
         download_time = time.time() - start_time
 
@@ -138,16 +157,24 @@ class TaskSettingsInterface(BaseIBLDataInterface):
         """
         Add session-level epochs to the NWB file.
 
-        Creates two epochs defining:
-        - Task/experiment phase (0 to start of passive period)
-        - Passive phase (start to end of passive period)
+        Iterates over all protocols defined in `_ibl_experiment.description`,
+        loads `_iblrig_taskSettings.raw.json` for each one, and adds one row
+        to the `epochs` table per protocol with start/stop times expressed in
+        seconds relative to the NWB session start time.
 
         Parameters
         ----------
         nwbfile : NWBFile
-            The NWB file to add data to
+            The NWB file to add data to.
         metadata : dict, optional
-            Additional metadata (not currently used)
+            Additional metadata (not currently used).
+
+        Raises
+        ------
+        ValueError
+            If no task protocols are found in the experiment description.
+        AssertionError
+            If a protocol name cannot be mapped via PROTOCOLS_MAPPING.
         """
 
         # Initialize epochs table if it doesn't exist

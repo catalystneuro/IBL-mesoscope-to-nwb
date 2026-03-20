@@ -1,3 +1,4 @@
+import time
 from copy import deepcopy
 from pathlib import Path
 
@@ -17,10 +18,10 @@ from ._meso_segmentation_extractor import MesoscopeSegmentationExtractor
 
 
 class MesoscopeSegmentationInterface(BaseIBLDataInterface, BaseSegmentationExtractorInterface):
-    """Interface for Mesoscope segmentation data."""
+    """Interface for IBL Mesoscope segmentation data."""
 
     display_name = "Mesoscope Segmentation"
-    info = "Interface for Mesoscope segmentation."
+    info = "Interface for IBL Mesoscope segmentation."
     REVISION: str | None = None
 
     @classmethod
@@ -71,6 +72,67 @@ class MesoscopeSegmentationInterface(BaseIBLDataInterface, BaseSegmentationExtra
                     f"alf/{FOV_name}/mpciROIs.uuids.csv",
                 ]
             },
+        }
+
+    @classmethod
+    def download_data(
+        cls,
+        one: ONE,
+        eid: str,
+        FOV_name: str,
+        download_only: bool = True,
+        verbose: bool = False,
+        **kwargs,
+    ) -> dict:
+        """
+        Download segmentation data for a specific FOV.
+
+        NOTE: Uses class-level REVISION attribute automatically.
+
+        Parameters
+        ----------
+        one : ONE
+            ONE API instance
+        eid : str
+            Session ID
+        FOV_name : str
+            Field of view name (e.g. "FOV_00", "FOV_01", etc.)
+        download_only : bool, default=True
+            If True, download but don't load into memory
+        verbose : bool, default=False
+            If True, print download status and timing information
+
+        Returns
+        -------
+        dict
+            Download status
+        """
+        requirements = cls.get_data_requirements(FOV_name=FOV_name)
+        revision = cls.REVISION
+
+        start_time = time.time()
+
+        # NO try-except - let it fail if files missing
+        one.load_object(eid, obj="mpci", collection=f"alf/{FOV_name}", download_only=download_only, revision=revision)
+        one.load_object(
+            eid, obj="mpciROIs", collection=f"alf/{FOV_name}", download_only=download_only, revision=revision
+        )
+        one.load_object(
+            eid, obj="mpciMeanImage", collection=f"alf/{FOV_name}", download_only=download_only, revision=revision
+        )
+
+        download_time = time.time() - start_time
+
+        if verbose:
+            print(f"  Downloaded segmentation data for {FOV_name} in {download_time:.2f}s")
+
+        return {
+            "success": True,
+            "downloaded_objects": ["mpci", "mpciROIs", "mpciMeanImage"],
+            "downloaded_files": requirements["exact_files_options"]["standard"],
+            "already_cached": [],
+            "alternative_used": None,
+            "data": None,
         }
 
     @classmethod
