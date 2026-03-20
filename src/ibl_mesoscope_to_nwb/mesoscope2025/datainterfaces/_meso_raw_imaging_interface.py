@@ -154,8 +154,10 @@ class MesoscopeRawImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInt
                 if tar_path.exists():
                     if verbose:
                         print(f"  Decompressing {tar_path}...")
+                    extract_path = tar_path.parent / "imaging.frames"
+                    extract_path.mkdir(exist_ok=True)
                     with tarfile.open(tar_path, "r:*") as tar:
-                        tar.extractall(path=tar_path.parent)
+                        tar.extractall(path=extract_path)
 
         download_time = time.time() - start_time
 
