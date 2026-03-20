@@ -152,9 +152,13 @@ class MesoscopeRawImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInt
             for collection in raw_imaging_collections:
                 tar_path = Path(session_path) / collection / "imaging.frames.tar.bz2"
                 if tar_path.exists():
+                    extract_path = tar_path.parent / "imaging.frames"
+                    if extract_path.exists() and any(extract_path.iterdir()):
+                        if verbose:
+                            print(f"  Skipping decompression, already extracted: {extract_path}")
+                        continue
                     if verbose:
                         print(f"  Decompressing {tar_path}...")
-                    extract_path = tar_path.parent / "imaging.frames"
                     extract_path.mkdir(exist_ok=True)
                     with tarfile.open(tar_path, "r:*") as tar:
                         tar.extractall(path=extract_path)
