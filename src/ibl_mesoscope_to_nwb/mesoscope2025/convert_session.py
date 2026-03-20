@@ -9,6 +9,8 @@ from one.api import ONE
 from ibl_mesoscope_to_nwb.mesoscope2025.conversion import (
     convert_processed_session,
     convert_raw_session,
+    download_processed_session_data,
+    download_raw_session_data,
 )
 
 
@@ -22,6 +24,9 @@ def session_to_nwb(
 ):
     """
     Convert a single session to NWB format.
+
+    Downloads all required data before conversion using each interface's
+    ``download_data`` classmethod.
 
     Parameters
     ----------
@@ -38,11 +43,21 @@ def session_to_nwb(
     verbose : bool, optional
         Whether to print detailed conversion information, by default False.
     """
+    one = ONE()
+
     match mode:
         case "processed":
+            # ----------------------------------------------------------------
+            # STEP 1: Download data
+            # ----------------------------------------------------------------
+            download_processed_session_data(eid=eid, one=one, stub_test=stub_test, verbose=verbose)
+
+            # ----------------------------------------------------------------
+            # STEP 2: Convert
+            # ----------------------------------------------------------------
             return convert_processed_session(
                 eid=eid,
-                one=ONE(),  # base_url="https://alyx.internationalbrainlab.org"
+                one=one,
                 stub_test=stub_test,
                 output_path=output_path,
                 append_on_disk_nwbfile=append_on_disk_nwbfile,
@@ -50,9 +65,17 @@ def session_to_nwb(
             )
 
         case "raw":
+            # ----------------------------------------------------------------
+            # STEP 1: Download data
+            # ----------------------------------------------------------------
+            download_raw_session_data(eid=eid, one=one, stub_test=stub_test, verbose=verbose)
+
+            # ----------------------------------------------------------------
+            # STEP 2: Convert
+            # ----------------------------------------------------------------
             return convert_raw_session(
                 eid=eid,
-                one=ONE(),  # base_url="https://alyx.internationalbrainlab.org"
+                one=one,
                 stub_test=stub_test,
                 output_path=output_path,
                 append_on_disk_nwbfile=append_on_disk_nwbfile,
