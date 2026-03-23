@@ -8,7 +8,7 @@ from typing import List, Literal, Union
 
 from tqdm import tqdm
 
-from .convert_session import session_to_nwb
+from ibl_mesoscope_to_nwb.mesoscope2025.convert_session import session_to_nwb
 
 
 def dataset_to_nwb(
@@ -88,9 +88,6 @@ if __name__ == "__main__":
         "42d7e11e-3185-4a79-a6ad-bbaf47366db2",
         "4693e7cc-17f6-4eeb-8abb-5951ba82b601",
         "e7c3df94-ef2a-44ed-a8e3-9d1a995b54f9",
-        "c13eb6d3-09f5-49f7-bd89-26fce25ff65f",
-        "1e558505-7d94-4851-83ef-edb2844ee805",
-        "6f12a581-2203-4cd3-97b4-cd9cd78b440e",
     ]
     output_dir_path = Path("E:/IBL-mesoscope-nwbfiles")
     stub_test = False
