@@ -9,7 +9,10 @@ from neuroconv.utils import dict_deep_update, load_dict_from_file
 from one.api import ONE
 from typing_extensions import Self
 
-from ibl_mesoscope_to_nwb.mesoscope2025.utils import get_ibl_subject_metadata, get_protocol_type_and_description
+from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
+    get_ibl_subject_metadata,
+    get_protocol_type_and_description,
+)
 
 
 class IblConverter(ConverterPipe):

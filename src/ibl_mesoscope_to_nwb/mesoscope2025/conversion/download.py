@@ -73,28 +73,24 @@ def download_processed_session_data(
     for FOV_name in FOV_names:
         if verbose:
             print(f"  Downloading motion-corrected imaging for {FOV_name}...")
-        MesoscopeMotionCorrectedImagingInterface.download_data(**interface_kwargs, FOV_name=FOV_name, verbose=verbose)
+        MesoscopeMotionCorrectedImagingInterface.download_data(**interface_kwargs, FOV_name=FOV_name)
         interfaces_downloaded += 1
 
         if verbose:
             print(f"  Downloading segmentation for {FOV_name}...")
-        MesoscopeSegmentationInterface.download_data(**interface_kwargs, FOV_name=FOV_name, verbose=verbose)
+        MesoscopeSegmentationInterface.download_data(**interface_kwargs, FOV_name=FOV_name)
         interfaces_downloaded += 1
 
         if MesoscopeROIAnatomicalLocalizationInterface.check_availability(one, eid, FOV_name=FOV_name)["available"]:
             if verbose:
                 print(f"  Downloading ROI anatomical localization for {FOV_name}...")
-            MesoscopeROIAnatomicalLocalizationInterface.download_data(
-                **interface_kwargs, FOV_name=FOV_name, verbose=verbose
-            )
+            MesoscopeROIAnatomicalLocalizationInterface.download_data(**interface_kwargs, FOV_name=FOV_name)
             interfaces_downloaded += 1
 
         if MesoscopeImageAnatomicalLocalizationInterface.check_availability(one, eid, FOV_name=FOV_name)["available"]:
             if verbose:
                 print(f"  Downloading image anatomical localization for {FOV_name}...")
-            MesoscopeImageAnatomicalLocalizationInterface.download_data(
-                **interface_kwargs, FOV_name=FOV_name, verbose=verbose
-            )
+            MesoscopeImageAnatomicalLocalizationInterface.download_data(**interface_kwargs, FOV_name=FOV_name)
             interfaces_downloaded += 1
 
     # -------------------------------------------------------------------------
@@ -102,32 +98,32 @@ def download_processed_session_data(
     # -------------------------------------------------------------------------
     if verbose:
         print("  Downloading trials data...")
-    BrainwideMapTrialsInterface.download_data(**interface_kwargs, verbose=verbose)
+    BrainwideMapTrialsInterface.download_data(**interface_kwargs)
     interfaces_downloaded += 1
 
     if verbose:
         print("  Downloading task settings...")
-    TaskSettingsInterface.download_data(**interface_kwargs, verbose=verbose)
+    TaskSettingsInterface.download_data(**interface_kwargs)
     interfaces_downloaded += 1
 
     # Passive period interfaces (optional)
     if PassiveIntervalsInterface.check_availability(one, eid)["available"]:
         if verbose:
             print("  Downloading passive intervals...")
-        PassiveIntervalsInterface.download_data(**interface_kwargs, verbose=verbose)
+        PassiveIntervalsInterface.download_data(**interface_kwargs)
         interfaces_downloaded += 1
 
     if PassiveReplayStimInterface.check_availability(one, eid)["available"]:
         if verbose:
             print("  Downloading passive replay stimuli...")
-        PassiveReplayStimInterface.download_data(**interface_kwargs, verbose=verbose)
+        PassiveReplayStimInterface.download_data(**interface_kwargs)
         interfaces_downloaded += 1
 
     # Licks (optional)
     if LickInterface.check_availability(one, eid)["available"]:
         if verbose:
             print("  Downloading lick data...")
-        LickInterface.download_data(**interface_kwargs, verbose=verbose)
+        LickInterface.download_data(**interface_kwargs)
         interfaces_downloaded += 1
 
     # -------------------------------------------------------------------------
