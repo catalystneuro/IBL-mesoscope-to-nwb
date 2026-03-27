@@ -136,20 +136,20 @@ def download_processed_session_data(
         if pose_availability["available"]:
             if verbose:
                 print(f"  Downloading pose estimation for {camera_name}...")
-            IblPoseEstimationInterface.download_data(**interface_kwargs, camera_name=camera_name, verbose=verbose)
+            IblPoseEstimationInterface.download_data(**interface_kwargs, camera_name=camera_name)
             interfaces_downloaded += 1
 
         if camera_view in ["left", "right"]:
             if PupilTrackingInterface.check_availability(one, eid, camera_name=camera_name)["available"]:
                 if verbose:
                     print(f"  Downloading pupil tracking for {camera_name}...")
-                PupilTrackingInterface.download_data(**interface_kwargs, camera_name=camera_name, verbose=verbose)
+                PupilTrackingInterface.download_data(**interface_kwargs, camera_name=camera_name)
                 interfaces_downloaded += 1
 
         if RoiMotionEnergyInterface.check_availability(one, eid, camera_name=camera_name)["available"]:
             if verbose:
                 print(f"  Downloading ROI motion energy for {camera_name}...")
-            RoiMotionEnergyInterface.download_data(**interface_kwargs, camera_name=camera_name, verbose=verbose)
+            RoiMotionEnergyInterface.download_data(**interface_kwargs, camera_name=camera_name)
             interfaces_downloaded += 1
 
     download_time = time.time() - download_start
