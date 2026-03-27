@@ -378,13 +378,18 @@ class MesoscopeROIAnatomicalLocalizationInterface(BaseIBLDataInterface):
 
         plane_segmentation = self._ensure_plane_segmentation_exists(nwbfile)
 
+        # Precompute brain region name lookup: id -> name (using Allen CCF 2017 atlas)
+        unique_ids = np.unique(rois_brain_location_ids)
+        region_info = self.atlas.regions.get(unique_ids)
+        id_to_acronym = dict(zip(unique_ids.tolist(), region_info.acronym.tolist()))
+
         # Create AnatomicalCoordinatesTable for IBL-Bregma coordinates
         ibl_anatomical_coordinates_table = AnatomicalCoordinatesTable(
             name=f"AnatomicalCoordinatesTableIBLBregmaROI{self.camel_case_FOV_name}",
             description=f"ROI centroid estimated coordinates in the IBL-Bregma coordinate system for {self.FOV_name}.",
             target=plane_segmentation,
             space=nwbfile.lab_meta_data["localization"].spaces[self.ibl_bregma_space.name],
-            method="TODO: Add method description",
+            method="<>",  # TODO Add method description
         )
         ibl_anatomical_coordinates_table.add_column(
             name="brain_region_id",
@@ -397,7 +402,7 @@ class MesoscopeROIAnatomicalLocalizationInterface(BaseIBLDataInterface):
             description=f"ROI centroid estimated coordinates in the CCF coordinate system for {self.FOV_name}.",
             target=plane_segmentation,
             space=nwbfile.lab_meta_data["localization"].spaces[self.allen_ccf_space.name],
-            method="TODO: Add method description",
+            method="<>",  # TODO Add method description
         )
         ccf_anatomical_coordinates_table.add_column(
             name="brain_region_id",
@@ -409,13 +414,15 @@ class MesoscopeROIAnatomicalLocalizationInterface(BaseIBLDataInterface):
             x = float(rois_mlapdv[roi_index][0])
             y = float(rois_mlapdv[roi_index][1])
             z = float(rois_mlapdv[roi_index][2])
+            brain_region_id = int(rois_brain_location_ids[roi_index])
+            brain_region_acronym = id_to_acronym[brain_region_id]
             ibl_anatomical_coordinates_table.add_row(
                 localized_entity=roi_index,
                 x=x,
                 y=y,
                 z=z,
-                brain_region_id=int(rois_brain_location_ids[roi_index]),
-                #  brain_region= "TODO", add function that retrieves brain region name from id
+                brain_region_id=brain_region_id,
+                brain_region=brain_region_acronym,
             )
             xyz_m_for_ccf = np.hstack((x, -y, z)) / 1e6  # convert from um to m and switch to PIR+ for CCF
             ccf_um = self.atlas.xyz2ccf(xyz=xyz_m_for_ccf, ccf_order="apdvml").astype(np.float64)  # shape (N, 3)
@@ -424,8 +431,8 @@ class MesoscopeROIAnatomicalLocalizationInterface(BaseIBLDataInterface):
                 x=ccf_um[0],
                 y=ccf_um[1],
                 z=ccf_um[2],
-                brain_region_id=int(rois_brain_location_ids[roi_index]),
-                #  brain_region= "TODO", add function that retrieves brain region name from id
+                brain_region_id=brain_region_id,
+                brain_region=brain_region_acronym,
             )
 
         return ibl_anatomical_coordinates_table, ccf_anatomical_coordinates_table
@@ -790,8 +797,8 @@ class MesoscopeImageAnatomicalLocalizationInterface(BaseIBLDataInterface):
             )
         return mean_image
 
-    def _ensure_photon_series_exists(self, nwbfile: NWBFile):
-        """Retrieve the motion-corrected TwoPhotonSeries for this FOV from the NWB file.
+    def _ensure_imaging_plane_exists(self, nwbfile: NWBFile):
+        """Retrieve the ImagingPlane object for this FOV from the NWB file.
 
         Parameters
         ----------
@@ -800,30 +807,22 @@ class MesoscopeImageAnatomicalLocalizationInterface(BaseIBLDataInterface):
 
         Returns
         -------
-        TwoPhotonSeries
-            The motion-corrected photon series for this FOV.
+        ImagingPalne
+            The imaging plane for this FOV.
 
         Raises
         ------
         ValueError
-            If the 'ophys' processing module or the
-            MotionCorrectedTwoPhotonSeries for this FOV does not exist.
+            If ImagingPlane for this FOV does not exist.
         """
-        if "ophys" not in nwbfile.processing:
-            raise ValueError("No 'ophys' processing module found in NWB file.")
-        motion_corrected_photon_series = None
-        for name, proc in nwbfile.processing["ophys"].data_interfaces.items():
-            if name == f"MotionCorrectedTwoPhotonSeries{self.camel_case_FOV_name}":
-                motion_corrected_photon_series = nwbfile.processing["ophys"][name]
-                break
-        if motion_corrected_photon_series is None:
+        if f"ImagingPlane{self.camel_case_FOV_name}" not in nwbfile.imaging_planes:
             raise ValueError(
-                f"The motion corrected photon series for {self.FOV_name} doesn't exist. "
-                f"Populate the MotionCorrectedTwoPhotonSeries{self.camel_case_FOV_name} first "
+                f"The imaging_plane for {self.FOV_name} doesn't exist. "
+                f"Populate the ImagingPlane{self.camel_case_FOV_name} first "
                 "(e.g. via MesoscopeMotionCorrectedImagingInterface in the processed pipeline) "
                 "before running the anatomical localization interface."
             )
-        return motion_corrected_photon_series
+        return nwbfile.imaging_planes[f"ImagingPlane{self.camel_case_FOV_name}"]
 
     def _build_anatomical_coordinates_image(self, nwbfile: NWBFile):
         """Build AnatomicalCoordinatesImage objects for IBL-Bregma and Allen CCF v3 spaces.
@@ -836,7 +835,7 @@ class MesoscopeImageAnatomicalLocalizationInterface(BaseIBLDataInterface):
         Parameters
         ----------
         nwbfile : NWBFile
-            The NWB file containing the target mean image and motion-corrected series.
+            The NWB file containing the target mean image and imaging plane.
 
         Returns
         -------
@@ -846,26 +845,31 @@ class MesoscopeImageAnatomicalLocalizationInterface(BaseIBLDataInterface):
             mean projection image dimensions (H×W).
         """
         mean_image = self._ensure_mean_projection_image_exists(nwbfile)
-        motion_corrected_photon_series = self._ensure_photon_series_exists(nwbfile)
+        imaging_plane = self._ensure_imaging_plane_exists(nwbfile)
 
         # Get mean image anatomical localization data
         mean_image_estimate = self.one.load_object(self.session, **self.get_load_object_kwargs())
         mean_image_mlapdv = mean_image_estimate["mlapdv_estimate"]
         mean_image_regions = mean_image_estimate["brainLocationIds_ccf_2017_estimate"]
 
+        # Precompute brain region acronym lookup and build 2D acronym array
+        unique_ids = np.unique(mean_image_regions)
+        region_info = self.atlas.regions.get(unique_ids)
+        id_to_acronym = dict(zip(unique_ids.tolist(), region_info.acronym.tolist()))
+        brain_region_acronyms = np.vectorize(id_to_acronym.get)(mean_image_regions)
+
         # Create AnatomicalCoordinatesImage for IBL Bregma coordinates
         ibl_anatomical_coordinates_image = AnatomicalCoordinatesImage(
             name=f"AnatomicalCoordinatesImageIBLBregma{self.camel_case_FOV_name}",
             description=f"Mean image estimated coordinates in the IBL-Bregma coordinate system for {self.FOV_name}.",
             space=nwbfile.lab_meta_data["localization"].spaces[self.ibl_bregma_space.name],
-            method="TODO: Add method description",
+            method="<>",  # TODO Add method description
             image=mean_image,
             x=mean_image_mlapdv[:, :, 0],
             y=mean_image_mlapdv[:, :, 1],
             z=mean_image_mlapdv[:, :, 2],
-            # brain_region_id=mean_image_regions,  # TODO remove and place in BrainRegionMask and AtlasRegistration objects instead
-            # brain_region="TODO",  # add function that retrieves brain region name from id
-            localized_entity=motion_corrected_photon_series,
+            brain_region=brain_region_acronyms,
+            localized_entity=imaging_plane,
         )
 
         xyz_m_for_ccf = mean_image_mlapdv.reshape(-1, 3) / 1e6  # shape (H*W, 3), converted from um to m
@@ -879,14 +883,13 @@ class MesoscopeImageAnatomicalLocalizationInterface(BaseIBLDataInterface):
             name=f"AnatomicalCoordinatesImageCCFv3{self.camel_case_FOV_name}",
             description=f"Mean image estimated coordinates in the CCF coordinate system for {self.FOV_name}.",
             space=nwbfile.lab_meta_data["localization"].spaces[self.allen_ccf_space.name],
-            method="TODO: Add method description",
+            method="<>",  # TODO Add method description
             image=mean_image,
             x=mean_image_ccf[:, :, 0],
             y=mean_image_ccf[:, :, 1],
             z=mean_image_ccf[:, :, 2],
-            # brain_region_id=mean_image_regions,  # TODO remove and place in BrainRegionMask and AtlasRegistration objects instead
-            # brain_region="TODO",  # add function that retrieves brain region name from id
-            localized_entity=motion_corrected_photon_series,
+            brain_region=brain_region_acronyms,
+            localized_entity=imaging_plane,
         )
         return ibl_anatomical_coordinates_image, ccf_anatomical_coordinates_image
 
