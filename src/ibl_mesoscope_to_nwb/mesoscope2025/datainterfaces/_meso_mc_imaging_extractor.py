@@ -19,7 +19,7 @@ class MesoscopeMotionCorrectedImagingExtractor(ImagingExtractor):
         self.plane_name = f"plane{FOV_index}"
         super().__init__()
 
-        self._channel_names = ["OpticalChannel"]  # TODO update for dual plane
+        self._channel_names = ["OpticalChannel"]
 
         self._timestamps = self.one.load_dataset(id=self.session, dataset="mpci.times", collection=f"alf/{FOV_name}")
         self._num_samples = len(self._timestamps)

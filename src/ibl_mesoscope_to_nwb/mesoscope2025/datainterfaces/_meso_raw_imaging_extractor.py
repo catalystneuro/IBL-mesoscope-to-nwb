@@ -221,7 +221,7 @@ class MesoscopeRawImagingExtractor(MultiImagingExtractor):
         imaging_extractors = []
 
         for collection in raw_imaging_collections:
-            if "reference" in collection:  # TODO: create a separate interface for reference imaging data
+            if "reference" in collection:
                 continue
             else:
                 decompressed_raw_imaging_folder = local_session_folder_path / collection / "imaging.frames"
@@ -239,6 +239,5 @@ class MesoscopeRawImagingExtractor(MultiImagingExtractor):
                 channel_name=channel_name, file_paths=file_paths, FOV_index=FOV_index
             )
             imaging_extractors.append(extractor)
-            # imaging_extractor.set_times(times) #TODO: set correct timestamps for each frame based on IBL time alignment code
 
         super().__init__(imaging_extractors=imaging_extractors)
