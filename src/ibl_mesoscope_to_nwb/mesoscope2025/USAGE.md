@@ -27,14 +27,8 @@ Clone the repository and install the `mesoscope2025` extras:
 ```bash
 git clone https://github.com/catalystneuro/IBL-mesoscope-to-nwb.git
 cd IBL-mesoscope-to-nwb
-pip install -e ".[mesoscope2025]"
+pip install -e .
 ```
-
-The `mesoscope2025` extra pins the following versions for reproducibility:
-
-- `neuroconv==0.8.1`
-- `roiextractors==0.7.0`
-- `sparse` (required for loading IBL sparse mask format)
 
 ---
 

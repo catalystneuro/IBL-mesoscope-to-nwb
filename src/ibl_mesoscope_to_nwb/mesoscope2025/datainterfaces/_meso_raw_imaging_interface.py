@@ -79,7 +79,7 @@ class MesoscopeRawImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInt
         dict
             Data requirements with exact file paths
         """
-        # TODO - is the raw_imaging_data_00 collection necessary and sufficient condition?
+
         return {
             "exact_files_options": {
                 "standard": [

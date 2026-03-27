@@ -9,7 +9,10 @@ from neuroconv.utils import dict_deep_update, load_dict_from_file
 from one.api import ONE
 from typing_extensions import Self
 
-from ibl_mesoscope_to_nwb.mesoscope2025.utils import get_ibl_subject_metadata, get_protocol_type_and_description
+from ibl_mesoscope_to_nwb.mesoscope2025.utils import (
+    get_ibl_subject_metadata,
+    get_protocol_type_and_description,
+)
 
 
 class IblConverter(ConverterPipe):
@@ -85,7 +88,6 @@ class IblConverter(ConverterPipe):
         assert session_metadata["id"] == self.session, "Session metadata ID does not match the requested session ID."
         (lab_metadata,) = self.one.alyx.rest("labs", "list", name=session_metadata["lab"])
 
-        # TODO: include session_metadata['number'] in the extension attributes
         session_start_time = datetime.fromisoformat(session_metadata["start_time"])
         tzinfo = tz.gettz(lab_metadata["timezone"])
         session_start_time = session_start_time.replace(tzinfo=tzinfo)
