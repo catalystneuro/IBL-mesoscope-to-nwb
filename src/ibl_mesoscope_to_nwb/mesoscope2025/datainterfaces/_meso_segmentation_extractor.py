@@ -223,13 +223,13 @@ class MesoscopeSegmentationExtractor(SegmentationExtractor):
 
         return pixel_masks
 
-    def get_roi_image_masks(self, roi_ids=None) -> np.ndarray:
-        self._image_masks = _image_mask_extractor(
-            self.get_roi_pixel_masks(roi_ids),
-            roi_ids if roi_ids is not None else list(range(self.get_num_rois())),
-            self.get_frame_shape(),
-        )
-        return self._image_masks
+    # def get_roi_image_masks(self, roi_ids=None) -> np.ndarray:
+    #     self._image_masks = _image_mask_extractor(
+    #         self.get_roi_pixel_masks(roi_ids),
+    #         roi_ids if roi_ids is not None else list(range(self.get_num_rois())),
+    #         self.get_frame_shape(),
+    #     )
+    #     return self._image_masks
 
     def get_background_pixel_masks(self, background_ids=None) -> list[np.ndarray]:
         """Get the pixel masks for the specified background (neuropil) ROIs in sparse format.
@@ -268,13 +268,13 @@ class MesoscopeSegmentationExtractor(SegmentationExtractor):
 
         return pixel_masks
 
-    def get_background_image_masks(self, background_ids=None) -> np.ndarray:
-        self._background_image_masks = _image_mask_extractor(
-            self.get_background_pixel_masks(),
-            background_ids if background_ids is not None else list(range(self.get_num_background_components())),
-            self.get_frame_shape(),
-        )
-        return self._background_image_masks
+    # def get_background_image_masks(self, background_ids=None) -> np.ndarray:
+    #     self._background_image_masks = _image_mask_extractor(
+    #         self.get_background_pixel_masks(),
+    #         background_ids if background_ids is not None else list(range(self.get_num_background_components())),
+    #         self.get_frame_shape(),
+    #     )
+    #     return self._background_image_masks
 
     def _create_rois_responses(self) -> List[_RoiResponse]:
         """Load the ROI responses.
