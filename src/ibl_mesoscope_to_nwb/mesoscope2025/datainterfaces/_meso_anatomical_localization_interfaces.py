@@ -389,7 +389,11 @@ class MesoscopeROIAnatomicalLocalizationInterface(BaseIBLDataInterface):
             description=f"ROI centroid estimated coordinates in the IBL-Bregma coordinate system for {self.FOV_name}.",
             target=plane_segmentation,
             space=nwbfile.lab_meta_data["localization"].spaces[self.ibl_bregma_space.name],
-            method="<>",  # TODO Add method description
+            method=(
+                "Surface-based registration to the 2017 Allen Common Coordinate Framework (CCF) using the MRI Toronto "
+                "Atlas (10 µm resolution). Each ROI centroid is localized by projecting trajectories normal to the "
+                "coverslip plane into the atlas volume, based on dorsal brain surface triangulation at the craniotomy site."
+            ),
         )
         ibl_anatomical_coordinates_table.add_column(
             name="brain_region_id",
@@ -402,7 +406,11 @@ class MesoscopeROIAnatomicalLocalizationInterface(BaseIBLDataInterface):
             description=f"ROI centroid estimated coordinates in the CCF coordinate system for {self.FOV_name}.",
             target=plane_segmentation,
             space=nwbfile.lab_meta_data["localization"].spaces[self.allen_ccf_space.name],
-            method="<>",  # TODO Add method description
+            method=(
+                "Surface-based registration to the 2017 Allen Common Coordinate Framework (CCF) using the MRI Toronto "
+                "Atlas (10 µm resolution). IBL-Bregma coordinates were converted to Allen CCF v3 (PIR orientation, "
+                "AP/DV/ML in µm) via the MRITorontoAtlas.xyz2ccf transform."
+            ),
         )
         ccf_anatomical_coordinates_table.add_column(
             name="brain_region_id",
@@ -863,7 +871,11 @@ class MesoscopeImageAnatomicalLocalizationInterface(BaseIBLDataInterface):
             name=f"AnatomicalCoordinatesImageIBLBregma{self.camel_case_FOV_name}",
             description=f"Mean image estimated coordinates in the IBL-Bregma coordinate system for {self.FOV_name}.",
             space=nwbfile.lab_meta_data["localization"].spaces[self.ibl_bregma_space.name],
-            method="<>",  # TODO Add method description
+            method=(
+                "Surface-based registration to the 2017 Allen Common Coordinate Framework (CCF) using the MRI Toronto "
+                "Atlas (10 µm resolution). Each pixel is localized by projecting trajectories normal to the coverslip "
+                "plane into the atlas volume, based on dorsal brain surface triangulation at the craniotomy site."
+            ),
             image=mean_image,
             x=mean_image_mlapdv[:, :, 0],
             y=mean_image_mlapdv[:, :, 1],
@@ -883,7 +895,11 @@ class MesoscopeImageAnatomicalLocalizationInterface(BaseIBLDataInterface):
             name=f"AnatomicalCoordinatesImageCCFv3{self.camel_case_FOV_name}",
             description=f"Mean image estimated coordinates in the CCF coordinate system for {self.FOV_name}.",
             space=nwbfile.lab_meta_data["localization"].spaces[self.allen_ccf_space.name],
-            method="<>",  # TODO Add method description
+            method=(
+                "Surface-based registration to the 2017 Allen Common Coordinate Framework (CCF) using the MRI Toronto "
+                "Atlas (10 µm resolution). IBL-Bregma per-pixel coordinates were converted to Allen CCF v3 (PIR "
+                "orientation, AP/DV/ML in µm) via the MRITorontoAtlas.xyz2ccf transform."
+            ),
             image=mean_image,
             x=mean_image_ccf[:, :, 0],
             y=mean_image_ccf[:, :, 1],
