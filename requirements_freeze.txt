@@ -131,7 +131,7 @@ partd==1.4.2
 patsy==1.0.2
 phylib==2.6.3
 pickleshare @ file:///home/conda/feedstock_root/build_artifacts/pickleshare_1733327343728/work
-pillow==12.0.0
+pillow==12.2.0
 platformdirs @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_platformdirs_1759953252/work
 pluggy==1.6.0
 probeinterface==0.3.1
