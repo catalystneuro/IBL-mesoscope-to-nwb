@@ -345,7 +345,7 @@ class MesoscopeRawImagingInterface(BaseIBLDataInterface, BaseImagingExtractorInt
         x_pixel_size = raw_metadata["rawScanImageMeta"]["XResolution"]  # in micrometers
         y_pixel_size = raw_metadata["rawScanImageMeta"]["YResolution"]  # in micrometers
 
-        grid_spacing = [x_pixel_size * 1e-6, y_pixel_size * 1e-6]  # x spacing in meters  # y spacing in meters
+        grid_spacing = (x_pixel_size * 1e-6, y_pixel_size * 1e-6)  # x spacing in meters  # y spacing in meters
 
         # Create ImagingPlane entry for this FOV
         imaging_plane = imaging_plane_template.copy()
