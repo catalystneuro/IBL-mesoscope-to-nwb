@@ -158,7 +158,7 @@ PyQt5==5.15.11
 PyQt5-Qt5==5.15.2
 PyQt5_sip==12.17.1
 pyqtgraph==0.14.0
-pytest==9.0.1
+pytest==9.0.3
 python-dateutil @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_python-dateutil_1751104122/work
 python-dotenv==1.2.1
 pytz==2025.2
